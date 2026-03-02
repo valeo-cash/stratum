@@ -34,7 +34,7 @@ interface WindowData {
 
 interface ProofData {
   leaf: string;
-  nodes: { hash: string; level: number; side: string; highlight: boolean }[];
+  nodes: { hash: string; level: number; side: "left" | "right" | "root"; highlight: boolean }[];
   root: string;
 }
 
