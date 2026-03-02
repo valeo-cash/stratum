@@ -27,7 +27,7 @@ export default async function DashboardPage() {
   const services = await prisma.service.findMany({
     where: { userId: userId ?? undefined },
   });
-  const serviceIds = services.map((s) => s.id);
+  const serviceIds = services.map((s: { id: string }) => s.id);
 
   const receipts = await prisma.receiptRecord.findMany({
     where: { serviceId: { in: serviceIds } },
