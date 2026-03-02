@@ -1,0 +1,62 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model GatewayService {
+  id              String   @id @default(cuid())
+  name            String
+  targetUrl       String
+  slug            String   @unique
+  pricePerRequest Float    @default(0.002)
+  walletAddress   String   @default("")
+  chains          String   @default("[\"solana\"]")
+  wallets         String   @default("{}")
+  createdAt       DateTime @default(now())
+
+  @@map("gw_services")
+}
+
+model GatewayReceipt {
+  id             String   @id @default(cuid())
+  receiptId      String   @unique
+  windowId       String
+  sequence       Int
+  payerAddress   String
+  payeeAddress   String
+  amount         String
+  asset          String   @default("USDC")
+  resourceHash   String
+  receiptHash    String
+  signature      String
+  signerPubKey   String
+  nonce          String
+  createdAt      DateTime @default(now())
+
+  @@index([windowId])
+  @@index([payerAddress])
+  @@index([receiptHash])
+  @@map("gw_receipts")
+}
+
+model GatewayWindow {
+  id               String    @id @default(cuid())
+  windowId         String    @unique
+  state            String
+  receiptCount     Int       @default(0)
+  grossVolume      String    @default("0")
+  netVolume        String?
+  transferCount    Int?
+  compressionRatio Float?
+  merkleRoot       String?
+  anchorTxHash     String?
+  headSignature    String?
+  openedAt         DateTime  @default(now())
+  finalizedAt      DateTime?
+
+  @@map("gw_windows")
+}

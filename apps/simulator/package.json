@@ -1,0 +1,22 @@
+{
+  "name": "@valeo/simulator",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "mock:service": "tsx src/mock-service.ts",
+    "mock:facilitator": "tsx src/mock-facilitator.ts",
+    "start": "concurrently \"pnpm mock:service\" \"pnpm mock:facilitator\" \"sleep 2 && pnpm dev\""
+  },
+  "dependencies": {
+    "fastify": "^5",
+    "concurrently": "^9",
+    "@valeo/stratum-agent": "workspace:*",
+    "@noble/ed25519": "^3.0.0",
+    "@noble/hashes": "^2.0.1"
+  },
+  "devDependencies": {
+    "tsx": "^4",
+    "typescript": "^5"
+  }
+}

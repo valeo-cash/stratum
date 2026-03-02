@@ -1,0 +1,107 @@
+{
+  "address": "11111111111111111111111111111111",
+  "metadata": {
+    "name": "stratum_anchor",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Solana program for anchoring Stratum Merkle roots on-chain"
+  },
+  "instructions": [
+    {
+      "name": "anchor_window",
+      "discriminator": [186, 234, 216, 49, 115, 60, 87, 5],
+      "accounts": [
+        {
+          "name": "anchor_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [115, 116, 114, 97, 116, 117, 109]
+              },
+              {
+                "kind": "arg",
+                "path": "window_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "window_id",
+          "type": "string"
+        },
+        {
+          "name": "merkle_root",
+          "type": {
+            "array": ["u8", 32]
+          }
+        },
+        {
+          "name": "receipt_count",
+          "type": "u64"
+        },
+        {
+          "name": "gross_volume",
+          "type": "u64"
+        },
+        {
+          "name": "net_volume",
+          "type": "u64"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "AnchorAccount",
+      "discriminator": [197, 100, 43, 238, 57, 214, 62, 29],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "window_id",
+            "type": "string"
+          },
+          {
+            "name": "merkle_root",
+            "type": {
+              "array": ["u8", 32]
+            }
+          },
+          {
+            "name": "receipt_count",
+            "type": "u64"
+          },
+          {
+            "name": "gross_volume",
+            "type": "u64"
+          },
+          {
+            "name": "net_volume",
+            "type": "u64"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    }
+  ]
+}

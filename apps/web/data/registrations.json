@@ -1,0 +1,38 @@
+[
+  {
+    "serviceId": "svc_mm70ojmj_nun48k",
+    "slug": "example",
+    "targetUrl": "https://api.example.com/v1",
+    "pricePerRequest": "0.002",
+    "email": "test@example.com",
+    "endpoint": "https://stratum.valeo.com/s/example/v1",
+    "createdAt": "2026-03-01T00:33:49.915Z"
+  },
+  {
+    "serviceId": "svc_mm70on9x_m0gnem",
+    "slug": "example-1",
+    "targetUrl": "https://api.example.com/v2",
+    "pricePerRequest": "0.005",
+    "email": "other@example.com",
+    "endpoint": "https://stratum.valeo.com/s/example-1/v1",
+    "createdAt": "2026-03-01T00:33:54.645Z"
+  },
+  {
+    "serviceId": "svc_mm70qjo5_ma9f2n",
+    "slug": "jsonplaceholder",
+    "targetUrl": "https://jsonplaceholder.typicode.com/posts",
+    "pricePerRequest": "0.001",
+    "email": "valeobank@gmail.com",
+    "endpoint": "https://stratum.valeo.com/s/jsonplaceholder/v1",
+    "createdAt": "2026-03-01T00:35:23.285Z"
+  },
+  {
+    "serviceId": "svc_mm71jk7j_468e9y",
+    "slug": "test",
+    "targetUrl": "https://api.test.com/v1",
+    "pricePerRequest": "0.005",
+    "email": "test@test.com",
+    "endpoint": "https://stratum.valeo.com/s/test/v1",
+    "createdAt": "2026-03-01T00:57:57.007Z"
+  }
+]
