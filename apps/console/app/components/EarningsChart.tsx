@@ -40,7 +40,7 @@ export default function EarningsChart({ data }: { data: DataPoint[] }) {
             borderRadius: 0,
             fontSize: 12,
           }}
-          formatter={(value: number) => [`$${value.toFixed(4)}`, "Earnings"]}
+          formatter={(value: number | undefined) => [`$${(value ?? 0).toFixed(4)}`, "Earnings"]}
         />
         <Bar dataKey="earnings" fill="#003FFF" radius={0} />
       </BarChart>
