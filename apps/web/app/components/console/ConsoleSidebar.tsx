@@ -2,15 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSession, signOut } from "next-auth/react";
 import {
   LayoutDashboard,
   Server,
   Receipt,
   Clock,
   Search,
-  Settings,
-  LogOut,
   Menu,
   X,
 } from "lucide-react";
@@ -22,15 +19,11 @@ const navItems = [
   { label: "Receipts", href: "/console/receipts", icon: Receipt },
   { label: "Windows", href: "/console/windows", icon: Clock },
   { label: "Explorer", href: "/console/explorer", icon: Search },
-  { label: "Settings", href: "/console/settings", icon: Settings },
 ];
 
 export default function ConsoleSidebar() {
   const pathname = usePathname();
-  const { data: session } = useSession();
   const [mobileOpen, setMobileOpen] = useState(false);
-
-  if (pathname === "/console/login") return null;
 
   return (
     <>
@@ -88,28 +81,6 @@ export default function ConsoleSidebar() {
             })}
           </nav>
         </div>
-
-        {session?.user && (
-          <div className="p-6">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-none bg-[#F3F4F6] flex items-center justify-center text-xs font-medium text-[#6B7280]">
-                {(session.user.email || "?")[0].toUpperCase()}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[13px] text-[#0A0A0A] truncate">
-                  {session.user.email}
-                </p>
-              </div>
-              <button
-                onClick={() => signOut({ callbackUrl: "/console/login" })}
-                className="p-1.5 text-[#9CA3AF] hover:text-[#0A0A0A] transition-colors"
-                title="Sign out"
-              >
-                <LogOut size={16} strokeWidth={1.5} />
-              </button>
-            </div>
-          </div>
-        )}
       </aside>
     </>
   );

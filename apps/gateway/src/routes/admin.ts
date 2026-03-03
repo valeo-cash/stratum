@@ -2,9 +2,14 @@ import { FastifyInstance } from "fastify";
 import { registerService, listServices, getService, removeService } from "../registry";
 import { getReceiptStore, getFinalizedWindows, getCurrentWindowInfo } from "../settlement";
 import { toHex } from "../crypto";
+import { generateApiKey, listApiKeys, revokeApiKey } from "../auth";
+import { requireRole } from "../middleware/auth";
+
+const adminGuard = requireRole("admin", "facilitator");
+const adminOnlyGuard = requireRole("admin");
 
 export default async function adminRoutes(fastify: FastifyInstance) {
-  fastify.get("/admin/stats", async () => {
+  fastify.get("/admin/stats", { preHandler: adminGuard }, async () => {
     const receipts = getReceiptStore();
     const windows = getFinalizedWindows();
     const services = listServices();
@@ -29,7 +34,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
     };
   });
 
-  fastify.post("/admin/services", async (request, reply) => {
+  fastify.post("/admin/services", { preHandler: adminGuard }, async (request, reply) => {
     const { name, targetUrl, slug, pricePerRequest, walletAddress, chains, wallets } = request.body as {
       name?: string;
       targetUrl?: string;
@@ -68,22 +73,58 @@ export default async function adminRoutes(fastify: FastifyInstance) {
     return reply.status(201).send(entry);
   });
 
-  fastify.get("/admin/services", async () => {
+  fastify.get("/admin/services", { preHandler: adminGuard }, async () => {
     return listServices();
   });
 
-  fastify.get("/admin/services/:slug", async (request, reply) => {
+  fastify.get("/admin/services/:slug", { preHandler: adminGuard }, async (request, reply) => {
     const { slug } = request.params as { slug: string };
     const svc = getService(slug);
     if (!svc) return reply.status(404).send({ error: "Service not found" });
     return svc;
   });
 
-  fastify.delete("/admin/services/:slug", async (request, reply) => {
+  fastify.delete("/admin/services/:slug", { preHandler: adminGuard }, async (request, reply) => {
     const { slug } = request.params as { slug: string };
     if (!removeService(slug)) {
       return reply.status(404).send({ error: "Service not found" });
     }
     return { deleted: true };
+  });
+
+  // --- API Key Management ---
+
+  fastify.post("/admin/api-keys", { preHandler: adminOnlyGuard }, async (request, reply) => {
+    const { name, role, serviceSlug } = request.body as {
+      name?: string;
+      role?: string;
+      serviceSlug?: string;
+    };
+
+    if (!name) {
+      return reply.status(400).send({ error: "Missing required field: name" });
+    }
+
+    const validRoles = ["provider", "facilitator", "admin"];
+    const resolvedRole = role ?? "provider";
+    if (!validRoles.includes(resolvedRole)) {
+      return reply.status(400).send({ error: `Invalid role. Must be one of: ${validRoles.join(", ")}` });
+    }
+
+    const result = await generateApiKey({ name, role: resolvedRole, serviceSlug });
+    return reply.status(201).send(result);
+  });
+
+  fastify.get("/admin/api-keys", { preHandler: adminOnlyGuard }, async () => {
+    return listApiKeys();
+  });
+
+  fastify.delete("/admin/api-keys/:id", { preHandler: adminOnlyGuard }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const revoked = await revokeApiKey(id);
+    if (!revoked) {
+      return reply.status(404).send({ error: "API key not found" });
+    }
+    return { revoked: true, id };
   });
 }

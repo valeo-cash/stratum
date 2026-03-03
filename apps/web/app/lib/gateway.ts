@@ -1,6 +1,6 @@
-const BASE = process.env.NEXT_PUBLIC_GATEWAY_URL || "http://localhost:3100";
+const BASE = process.env.GATEWAY_URL || process.env.NEXT_PUBLIC_GATEWAY_URL || "http://localhost:3100";
 
-async function gw(path: string) {
+async function gw<T = any>(path: string): Promise<T | null> {
   try {
     const res = await fetch(`${BASE}${path}`, { cache: "no-store" });
     if (!res.ok) return null;
@@ -8,6 +8,42 @@ async function gw(path: string) {
   } catch {
     return null;
   }
+}
+
+export interface GatewayStats {
+  totalReceipts: number;
+  totalVolume: string;
+  totalVolumeUSDC: number;
+  activeServices: number;
+  windowsFinalized: number;
+  currentWindow: {
+    windowId: string;
+    state: string;
+    receiptCount: number;
+    grossVolume: number;
+    openedAt: string;
+  } | null;
+  recentWindows: {
+    id: string;
+    receiptCount: number;
+    merkleRoot: string;
+    anchorTxHash: string | null;
+  }[];
+}
+
+export interface GatewayService {
+  name: string;
+  slug: string;
+  targetUrl: string;
+  pricePerRequest: number;
+  walletAddress: string;
+  chains: string[];
+  wallets: Record<string, string>;
+  createdAt: string;
+}
+
+export async function getStats() {
+  return gw<GatewayStats>("/admin/stats");
 }
 
 export async function getStatus() {
@@ -35,5 +71,9 @@ export async function getWindowById(id: string) {
 }
 
 export async function getServices() {
-  return gw("/admin/services");
+  return gw<GatewayService[]>("/admin/services");
+}
+
+export async function getService(slug: string) {
+  return gw<GatewayService>(`/admin/services/${encodeURIComponent(slug)}`);
 }

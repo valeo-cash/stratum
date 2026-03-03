@@ -9,6 +9,7 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@fastify/cors": "^10",
     "fastify": "^5",
     "@noble/ed25519": "^3.0.0",
     "@noble/hashes": "^2.0.1",
@@ -22,7 +23,8 @@
     "@valeo/stratum-agent": "workspace:*",
     "bs58": "^6",
     "@solana/web3.js": "^1.98.0",
-    "@prisma/client": "^5.22.0"
+    "@prisma/client": "^5.22.0",
+    "fastify-plugin": "^5"
   },
   "devDependencies": {
     "typescript": "^5",

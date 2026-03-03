@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import Sidebar from "./components/Sidebar";
-import { Providers } from "./providers";
 
 const gcNorth = localFont({
   src: [
@@ -30,12 +29,10 @@ export default function RootLayout({
   return (
     <html lang="en" className={gcNorth.variable}>
       <body className="bg-white text-[#0A0A0A] font-sans font-light antialiased">
-        <Providers>
-          <div className="flex min-h-screen">
-            <Sidebar />
-            <main className="flex-1 lg:ml-[260px] min-w-0">{children}</main>
-          </div>
-        </Providers>
+        <div className="flex min-h-screen">
+          <Sidebar />
+          <main className="flex-1 lg:ml-[260px] min-w-0">{children}</main>
+        </div>
       </body>
     </html>
   );

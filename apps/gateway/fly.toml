@@ -1,0 +1,24 @@
+app = "stratum-gateway"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[http_service]
+  internal_port = 3100
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [http_service.checks]
+    [http_service.checks.health]
+      interval = "15s"
+      timeout = "5s"
+      grace_period = "10s"
+      method = "GET"
+      path = "/health"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

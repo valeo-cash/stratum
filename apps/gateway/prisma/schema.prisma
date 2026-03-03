@@ -43,6 +43,50 @@ model GatewayReceipt {
   @@map("gw_receipts")
 }
 
+model ApiKey {
+  id          String    @id @default(uuid())
+  key         String    @unique
+  name        String
+  role        String    @default("provider")
+  serviceSlug String?
+  createdAt   DateTime  @default(now())
+  lastUsedAt  DateTime?
+  revokedAt   DateTime?
+  rateLimit   Int       @default(1000)
+
+  @@map("gw_api_keys")
+}
+
+model FacilitatorWebhook {
+  id        String   @id @default(uuid())
+  url       String
+  chains    String
+  secret    String
+  apiKeyId  String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@map("gw_facilitator_webhooks")
+}
+
+model SettlementBatch {
+  id            String    @id @default(uuid())
+  windowId      String
+  chain         String
+  transfers     String
+  totalVolume   String
+  status        String    @default("pending")
+  anchorTxHash  String?
+  webhookSentAt DateTime?
+  confirmedAt   DateTime?
+  txHashes      String?
+  createdAt     DateTime  @default(now())
+
+  @@index([windowId])
+  @@index([status])
+  @@map("gw_settlement_batches")
+}
+
 model GatewayWindow {
   id               String    @id @default(cuid())
   windowId         String    @unique
@@ -55,6 +99,7 @@ model GatewayWindow {
   merkleRoot       String?
   anchorTxHash     String?
   headSignature    String?
+  nettingData      String?
   openedAt         DateTime  @default(now())
   finalizedAt      DateTime?
 

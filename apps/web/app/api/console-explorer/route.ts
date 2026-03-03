@@ -1,31 +1,15 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/app/lib/prisma";
 
-function mockHash() {
-  const hex = "0123456789abcdef";
-  let h = "0x";
-  for (let i = 0; i < 64; i++) h += hex[Math.floor(Math.random() * 16)];
-  return h;
-}
+const GATEWAY_URL = process.env.GATEWAY_URL || process.env.NEXT_PUBLIC_GATEWAY_URL || "http://localhost:3100";
 
-function generateMerkleProof(receiptHash: string, merkleRoot: string | null) {
-  const root = merkleRoot ?? mockHash();
-  const leaf = receiptHash;
-  const sibling1 = mockHash();
-  const parent = mockHash();
-  const sibling2 = mockHash();
-
-  return {
-    leaf,
-    nodes: [
-      { hash: leaf, level: 0, side: "left" as const, highlight: true },
-      { hash: sibling1, level: 0, side: "right" as const, highlight: false },
-      { hash: parent, level: 1, side: "left" as const, highlight: true },
-      { hash: sibling2, level: 1, side: "right" as const, highlight: false },
-      { hash: root, level: 2, side: "root" as const, highlight: true },
-    ],
-    root,
-  };
+async function gwFetch(path: string) {
+  try {
+    const res = await fetch(`${GATEWAY_URL}${path}`, { cache: "no-store" });
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
 }
 
 export async function GET(req: Request) {
@@ -36,40 +20,46 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Missing query" }, { status: 400 });
   }
 
-  if (!prisma) {
-    return NextResponse.json({ error: "Database not configured" }, { status: 503 });
-  }
-
-  let receipt = await prisma.receiptRecord.findFirst({
-    where: { receiptHash: q },
-  });
-
-  if (!receipt) {
-    receipt = await prisma.receiptRecord.findFirst({
-      where: { payerAddress: q },
-    });
-  }
-
-  if (!receipt) {
-    receipt = await prisma.receiptRecord.findFirst({
-      where: { id: q },
-    });
-  }
+  const receipt = await gwFetch(`/v1/receipt/${encodeURIComponent(q)}`);
 
   if (!receipt) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const window = await prisma.windowRecord.findFirst({
-    where: { windowId: receipt.windowId },
-  });
+  const windowId = receipt.windowId;
+  const window = windowId ? await gwFetch(`/v1/window/${encodeURIComponent(windowId)}`) : null;
 
-  const proof = generateMerkleProof(receipt.receiptHash, window?.merkleRoot ?? null);
+  const normalizedReceipt = {
+    id: receipt.id,
+    serviceId: receipt.serviceId ?? "",
+    windowId: receipt.windowId,
+    sequence: receipt.sequence,
+    payerAddress: receipt.payer ?? receipt.payerAddress ?? "",
+    payeeAddress: receipt.payee ?? receipt.payeeAddress ?? "",
+    amount: receipt.amount,
+    asset: receipt.asset ?? "USDC",
+    resourcePath: receipt.resource ?? receipt.resourcePath ?? "",
+    idempotencyKey: receipt.idempotencyKey ?? receipt.id,
+    receiptHash: receipt.receiptHash ?? "",
+    createdAt: receipt.timestamp ?? receipt.createdAt ?? new Date().toISOString(),
+  };
 
   return NextResponse.json({
-    receipt,
-    window,
-    proof,
+    receipt: normalizedReceipt,
+    window: window
+      ? {
+          windowId: window.windowId,
+          state: window.state,
+          merkleRoot: window.merkleRoot ?? null,
+          anchorTxHash: window.anchorTxHash ?? null,
+          anchorChain: window.anchorChain ?? null,
+        }
+      : null,
+    proof: {
+      leaf: normalizedReceipt.receiptHash,
+      nodes: [],
+      root: window?.merkleRoot ?? "",
+    },
     verification: {
       signatureValid: true,
       includedInWindow: !!window,

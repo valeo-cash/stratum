@@ -8,7 +8,10 @@
     "build": "turbo build",
     "lint": "turbo lint",
     "test": "turbo test",
-    "demo": "pnpm --filter @valeo/simulator start"
+    "demo": "pnpm --filter @valeo/simulator start",
+    "build:gateway": "pnpm --filter @valeo/gateway... build",
+    "start:gateway": "node apps/gateway/dist/index.js",
+    "db:migrate:prod": "cd apps/gateway && npx prisma migrate deploy"
   },
   "devDependencies": {
     "turbo": "^2"

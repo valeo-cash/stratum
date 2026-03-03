@@ -22,6 +22,7 @@ import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import { getGatewayPrivateKey, getGatewayPublicKey, toHex } from "./crypto";
 import { listServices } from "./registry";
 import { prisma } from "./db";
+import { notifyFacilitators } from "./webhook";
 
 const config: StratumConfig = {
   version: 1,
@@ -94,6 +95,10 @@ export function getSettlementRouter(): SettlementRouter | null {
   return settlementRouter;
 }
 
+export function getAnchor(): ChainAnchor {
+  return anchor;
+}
+
 const allReceipts: SignedReceipt[] = [];
 const finalizedWindows: Array<{
   windowId: string;
@@ -106,6 +111,12 @@ const finalizedWindows: Array<{
 }> = [];
 
 let previousHeadHash: Uint8Array | null = null;
+let currentBatchId: string | null = null;
+let lastSettlementTime: Date | null = null;
+
+export function getLastSettlementTime(): Date | null {
+  return lastSettlementTime;
+}
 
 export function submitReceipt(signed: SignedReceipt) {
   allReceipts.push(signed);
@@ -190,11 +201,38 @@ export async function runSettlementCycle(): Promise<SignedWindowHead | null> {
     return null;
   }
 
-  console.log(`[settlement] Closing window with ${currentWindow.getReceiptCount()} receipts`);
+  const windowId = currentWindow.windowId as string;
+  const receiptCount = currentWindow.getReceiptCount();
+  const receipts = currentWindow.getReceipts();
+  let grossVolumeCalc = 0n;
+  for (const r of receipts) grossVolumeCalc += r.receipt.amount;
+
+  console.log(`[settlement] Closing window with ${receiptCount} receipts`);
+
+  try {
+    await prisma.gatewayWindow.upsert({
+      where: { windowId },
+      create: {
+        windowId,
+        state: "closing",
+        receiptCount,
+        grossVolume: grossVolumeCalc.toString(),
+      },
+      update: {
+        state: "closing",
+        receiptCount,
+        grossVolume: grossVolumeCalc.toString(),
+      },
+    });
+  } catch (e: any) {
+    console.error("[settlement] Failed to persist closing window:", e.message);
+  }
 
   let windowSettlementResults: BatchSettlementResult[] | undefined;
 
-  const head = await manager.closeAndSettle({
+  let head: SignedWindowHead;
+  try {
+  head = await manager.closeAndSettle({
     computeNetting: (window) => {
       const receipts = window.getReceipts();
       const positions = new Map<string, Map<string, bigint>>();
@@ -227,55 +265,89 @@ export async function runSettlementCycle(): Promise<SignedWindowHead | null> {
         "mock-facilitator",
       );
 
-      // Execute real settlement transfers if router is configured
-      if (settlementRouter && nettingResult.transfers?.length > 0) {
-        const netTransfers = mapNettingToNetTransfers(nettingResult, window.windowId as string);
+      const netTransfers = nettingResult.transfers?.length > 0
+        ? mapNettingToNetTransfers(nettingResult, window.windowId as string)
+        : [];
 
-        if (netTransfers.length > 0) {
-          try {
-            const results = await settlementRouter.executeBatch(netTransfers);
-            windowSettlementResults = results;
+      const primaryChain = netTransfers.length > 0 ? netTransfers[0].chain : "solana";
 
-            for (const r of results) {
-              for (const t of r.transfers) {
-                const amountUSDC = (Number(t.amount) / 1_000_000).toFixed(6);
-                if (t.status === "confirmed") {
-                  console.log(`[settlement] Transfer: ${amountUSDC} USDC from ${t.from.slice(0, 12)}... to ${t.to.slice(0, 12)}... on ${r.chain} (tx: ${t.txHash.slice(0, 16)}...)`);
-                } else {
-                  console.log(`[settlement] Transfer FAILED: ${amountUSDC} USDC from ${t.from.slice(0, 12)}... to ${t.to.slice(0, 12)}... on ${r.chain}: ${t.error}`);
-                }
-              }
-            }
-
-            const solCount = results.filter((r) => r.chain === "solana").reduce((s, r) => s + r.transfers.length, 0);
-            const baseCount = results.filter((r) => r.chain === "base").reduce((s, r) => s + r.transfers.length, 0);
-            const totalSettled = results.reduce((s, r) => s + r.totalVolume, 0n);
-            const totalUSDC = (Number(totalSettled) / 1_000_000).toFixed(2);
-
-            const parts: string[] = [];
-            if (solCount > 0) parts.push(`solana (${solCount})`);
-            if (baseCount > 0) parts.push(`base (${baseCount})`);
-
-            console.log(`[settlement] Settled ${solCount + baseCount} transfers on ${parts.join(" + ")}, total $${totalUSDC} USDC`);
-          } catch (err) {
-            console.error("[settlement] Real settlement failed, continuing with anchor:", err);
-          }
-        }
+      // Create SettlementBatch record in DB
+      let dbBatch: { id: string } | null = null;
+      try {
+        dbBatch = await prisma.settlementBatch.create({
+          data: {
+            windowId: window.windowId as string,
+            chain: primaryChain,
+            transfers: JSON.stringify(netTransfers.map((t) => ({
+              from: t.from,
+              to: t.to,
+              amount: t.amount.toString(),
+              chain: t.chain,
+            }))),
+            totalVolume: nettingResult.net_volume?.toString() ?? "0",
+            status: "pending",
+          },
+        });
+        currentBatchId = dbBatch.id;
+        console.log(`[settlement] Created batch ${dbBatch.id} (${netTransfers.length} transfers)`);
+      } catch (e: any) {
+        console.error("[settlement] Failed to create batch record:", e.message);
       }
 
-      try {
-        await fetch(`${config.facilitator_url}/settle`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            batchId: batch.batch_id,
-            windowId: batch.window_id as string,
-            transfers: batch.instructions.length,
-            totalVolume: nettingResult.net_volume.toString(),
-          }),
+      // Try webhook delivery to facilitators
+      let webhookDelivered = false;
+      if (dbBatch && netTransfers.length > 0) {
+        webhookDelivered = await notifyFacilitators(dbBatch.id, primaryChain, {
+          batchId: dbBatch.id,
+          windowId: window.windowId as string,
+          chain: primaryChain,
+          transfers: netTransfers.map((t) => ({
+            from: t.from,
+            to: t.to,
+            amount: t.amount.toString(),
+            chain: t.chain,
+          })),
+          totalVolume: nettingResult.net_volume?.toString() ?? "0",
         });
-      } catch {
-        console.log("[settlement] Mock facilitator unavailable, continuing...");
+      }
+
+      // If no webhook handled it, execute direct settlement
+      if (!webhookDelivered && settlementRouter && netTransfers.length > 0) {
+        try {
+          const results = await settlementRouter.executeBatch(netTransfers);
+          windowSettlementResults = results;
+
+          for (const r of results) {
+            for (const t of r.transfers) {
+              const amountUSDC = (Number(t.amount) / 1_000_000).toFixed(6);
+              if (t.status === "confirmed") {
+                console.log(`[settlement] Transfer: ${amountUSDC} USDC from ${t.from.slice(0, 12)}... to ${t.to.slice(0, 12)}... on ${r.chain} (tx: ${t.txHash.slice(0, 16)}...)`);
+              } else {
+                console.log(`[settlement] Transfer FAILED: ${amountUSDC} USDC from ${t.from.slice(0, 12)}... to ${t.to.slice(0, 12)}... on ${r.chain}: ${t.error}`);
+              }
+            }
+          }
+
+          const solCount = results.filter((r) => r.chain === "solana").reduce((s, r) => s + r.transfers.length, 0);
+          const baseCount = results.filter((r) => r.chain === "base").reduce((s, r) => s + r.transfers.length, 0);
+          const totalSettled = results.reduce((s, r) => s + r.totalVolume, 0n);
+          const totalUSDC = (Number(totalSettled) / 1_000_000).toFixed(2);
+
+          const parts: string[] = [];
+          if (solCount > 0) parts.push(`solana (${solCount})`);
+          if (baseCount > 0) parts.push(`base (${baseCount})`);
+
+          console.log(`[settlement] Settled ${solCount + baseCount} transfers on ${parts.join(" + ")}, total $${totalUSDC} USDC`);
+
+          if (dbBatch) {
+            prisma.settlementBatch.update({
+              where: { id: dbBatch.id },
+              data: { status: "settled" },
+            }).catch((e) => console.error("[settlement] Failed to update batch status:", e.message));
+          }
+        } catch (err) {
+          console.error("[settlement] Real settlement failed, continuing with anchor:", err);
+        }
       }
 
       return batch;
@@ -331,6 +403,18 @@ export async function runSettlementCycle(): Promise<SignedWindowHead | null> {
         settlementResults: windowSettlementResults,
       });
 
+      if (currentBatchId) {
+        prisma.settlementBatch.update({
+          where: { id: currentBatchId },
+          data: { anchorTxHash: result.txHash },
+        }).catch((e) => console.error("[settlement] Failed to update batch anchorTxHash:", e.message));
+      }
+
+      prisma.gatewayWindow.update({
+        where: { windowId: window.windowId as string },
+        data: { state: "anchored", anchorTxHash: result.txHash, merkleRoot: toHex(tree.root) },
+      }).catch((e) => console.error("[settlement] Failed to update window to anchored:", e.message));
+
       return anchorRecord;
     },
 
@@ -369,28 +453,73 @@ export async function runSettlementCycle(): Promise<SignedWindowHead | null> {
 
       console.log(`[settlement] Window ${window.windowId} finalized: ${receipts.length} receipts, root=${toHex(tree.root).slice(0, 16)}...`);
 
-      prisma.gatewayWindow.create({
-        data: {
-          windowId: window.windowId as string,
-          state: "FINALIZED",
-          receiptCount: receipts.length,
-          grossVolume: grossVolume.toString(),
-          netVolume: netting.net_volume.toString(),
-          transferCount: netting.transfer_count,
-          compressionRatio: netting.compression_ratio === Infinity ? null : netting.compression_ratio,
-          merkleRoot: toHex(tree.root),
-          anchorTxHash: entry?.anchorTxHash ?? null,
-          headSignature: toHex(signed.signature),
-          finalizedAt: new Date(),
-        },
+      const windowData = {
+        state: "settled",
+        receiptCount: receipts.length,
+        grossVolume: grossVolume.toString(),
+        netVolume: netting.net_volume.toString(),
+        transferCount: netting.transfer_count,
+        compressionRatio: netting.compression_ratio === Infinity ? null : netting.compression_ratio,
+        merkleRoot: toHex(tree.root),
+        anchorTxHash: entry?.anchorTxHash ?? null,
+        headSignature: toHex(signed.signature),
+        nettingData: JSON.stringify({
+          transfers: netting.transfers,
+          net_volume: netting.net_volume.toString(),
+          compression_ratio: netting.compression_ratio,
+          transfer_count: netting.transfer_count,
+        }),
+        finalizedAt: new Date(),
+      };
+
+      prisma.gatewayWindow.upsert({
+        where: { windowId: window.windowId as string },
+        create: { windowId: window.windowId as string, ...windowData },
+        update: windowData,
       }).catch((e) => console.error("[settlement] DB window write failed:", e.message));
 
       return signed;
     },
   });
+  } catch (err) {
+    console.error(`[settlement] Settlement cycle failed for window ${windowId}, will retry on next startup:`, err);
+    return null;
+  }
 
+  lastSettlementTime = new Date();
   windowSettlementResults = undefined;
   return head;
+}
+
+export async function persistCurrentWindow(): Promise<void> {
+  const current = manager.getCurrentWindow();
+  const count = current.getReceiptCount();
+  if (count === 0) return;
+
+  const windowId = current.windowId as string;
+  const receipts = current.getReceipts();
+  let grossVolume = 0n;
+  for (const r of receipts) grossVolume += r.receipt.amount;
+
+  try {
+    await prisma.gatewayWindow.upsert({
+      where: { windowId },
+      create: {
+        windowId,
+        state: "closing",
+        receiptCount: count,
+        grossVolume: grossVolume.toString(),
+      },
+      update: {
+        state: "closing",
+        receiptCount: count,
+        grossVolume: grossVolume.toString(),
+      },
+    });
+    console.log(`[settlement] Persisted current window ${windowId} (${count} receipts) for recovery`);
+  } catch (e: any) {
+    console.error("[settlement] Failed to persist current window:", e.message);
+  }
 }
 
 let settlementInterval: ReturnType<typeof setInterval> | null = null;
