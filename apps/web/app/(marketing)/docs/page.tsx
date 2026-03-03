@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import Footer from "../components/Footer";
-import DocsSidebar from "../components/DocsSidebar";
+import Footer from "../../components/Footer";
+import DocsSidebar from "../../components/DocsSidebar";
 
 export const metadata: Metadata = {
   title: "Documentation — Valeo Stratum",

@@ -1,0 +1,104 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  walletAddress String?
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+  accounts      Account[]
+  sessions      Session[]
+  services      Service[]
+}
+
+model Service {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  name         String
+  targetUrl    String
+  stratumSlug  String   @unique
+  pricePerReq  Float    @default(0.002)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model ReceiptRecord {
+  id             String   @id @default(cuid())
+  serviceId      String
+  windowId       String
+  sequence       Int
+  payerAddress   String
+  payeeAddress   String
+  amount         Float
+  asset          String   @default("USDC")
+  resourcePath   String
+  idempotencyKey String   @unique
+  receiptHash    String
+  createdAt      DateTime @default(now())
+
+  @@index([serviceId])
+  @@index([windowId])
+  @@index([payerAddress])
+}
+
+model WindowRecord {
+  id               String    @id @default(cuid())
+  windowId         String    @unique
+  state            String
+  receiptCount     Int       @default(0)
+  grossVolume      Float     @default(0)
+  netVolume        Float?
+  transferCount    Int?
+  compressionRatio Float?
+  merkleRoot       String?
+  anchorTxHash     String?
+  anchorChain      String?
+  facilitatorId    String?
+  openedAt         DateTime  @default(now())
+  closedAt         DateTime?
+  finalizedAt      DateTime?
+}

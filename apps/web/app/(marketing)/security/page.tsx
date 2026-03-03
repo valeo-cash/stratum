@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import Footer from "../components/Footer";
-import FadeIn from "../components/FadeIn";
+import Footer from "../../components/Footer";
+import FadeIn from "../../components/FadeIn";
 
 export const metadata: Metadata = {
   title: "Security — Valeo Stratum",
