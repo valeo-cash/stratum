@@ -5,7 +5,12 @@ import { redirect } from "next/navigation";
 import ReceiptsTable from "@/app/components/console/ReceiptsTable";
 
 export default async function ReceiptsPage() {
-  const session = await getServerSession(authOptions);
+  let session;
+  try {
+    session = await getServerSession(authOptions);
+  } catch {
+    redirect("/console/login");
+  }
   if (!session?.user) redirect("/console/login");
 
   if (!prisma) {

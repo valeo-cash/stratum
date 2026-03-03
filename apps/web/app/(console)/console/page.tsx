@@ -9,7 +9,12 @@ const ReceiptsChart = dynamic(() => import("@/app/components/console/ReceiptsCha
 const LiveFeed = dynamic(() => import("@/app/components/console/LiveFeed"), { ssr: false });
 
 export default async function DashboardPage() {
-  const session = await getServerSession(authOptions);
+  let session;
+  try {
+    session = await getServerSession(authOptions);
+  } catch {
+    redirect("/console/login");
+  }
   if (!session?.user) redirect("/console/login");
 
   if (!prisma) {

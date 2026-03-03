@@ -1,9 +1,13 @@
 const BASE = process.env.NEXT_PUBLIC_GATEWAY_URL || "http://localhost:3100";
 
 async function gw(path: string) {
-  const res = await fetch(`${BASE}${path}`, { cache: "no-store" });
-  if (!res.ok) return null;
-  return res.json();
+  try {
+    const res = await fetch(`${BASE}${path}`, { cache: "no-store" });
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
 }
 
 export async function getStatus() {

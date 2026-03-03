@@ -16,7 +16,12 @@ export default async function ServiceDetailPage({
 }: {
   params: { id: string };
 }) {
-  const session = await getServerSession(authOptions);
+  let session;
+  try {
+    session = await getServerSession(authOptions);
+  } catch {
+    redirect("/console/login");
+  }
   if (!session?.user) redirect("/console/login");
 
   if (!prisma) {

@@ -6,7 +6,12 @@ import Link from "next/link";
 import AddServiceButton from "@/app/components/console/AddServiceButton";
 
 export default async function ServicesPage() {
-  const session = await getServerSession(authOptions);
+  let session;
+  try {
+    session = await getServerSession(authOptions);
+  } catch {
+    redirect("/console/login");
+  }
   if (!session?.user) redirect("/console/login");
 
   if (!prisma) {
