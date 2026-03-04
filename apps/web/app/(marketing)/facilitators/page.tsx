@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Footer from "../../components/Footer";
+import ApiKeyForm from "../../components/ApiKeyForm";
 
 export const metadata: Metadata = {
   title: "Facilitators — Valeo Stratum",
@@ -182,6 +183,23 @@ export default function FacilitatorsPage() {
                 </p>
               </div>
             </div>
+          </div>
+        </section>
+
+        {/* Get Your API Key */}
+        <section className="py-20 px-6 lg:px-16 border-t border-[#F3F4F6]">
+          <div className="max-w-3xl">
+            <p className="text-[11px] font-mono text-[#9CA3AF] uppercase tracking-[0.2em] mb-10">
+              Get started
+            </p>
+            <h2 className="text-[#0A0A0A] text-2xl font-medium mb-3">
+              Get your API key
+            </h2>
+            <p className="text-[#6B7280] text-sm leading-relaxed mb-8">
+              Generate a key to start integrating with the Stratum settlement
+              network. No approval required.
+            </p>
+            <ApiKeyForm />
           </div>
         </section>
 
