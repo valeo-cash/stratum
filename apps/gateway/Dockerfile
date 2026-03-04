@@ -30,11 +30,13 @@ RUN pnpm --filter @valeo/gateway... build
 FROM base AS production
 ENV NODE_ENV=production
 COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/packages ./packages
 COPY --from=build /app/apps/gateway/dist ./apps/gateway/dist
 COPY --from=build /app/apps/gateway/node_modules ./apps/gateway/node_modules
 COPY --from=build /app/apps/gateway/prisma ./apps/gateway/prisma
 COPY --from=build /app/apps/gateway/package.json ./apps/gateway/
 COPY --from=build /app/package.json ./
+COPY --from=build /app/pnpm-workspace.yaml ./
 WORKDIR /app/apps/gateway
 EXPOSE 3100
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
