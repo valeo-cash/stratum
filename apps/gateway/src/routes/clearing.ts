@@ -1,7 +1,16 @@
 import { FastifyInstance } from "fastify";
-import { hashReceipt } from "@valeo/stratum-receipts";
-import { getReceiptStore, getFinalizedWindows, getCurrentWindowInfo } from "../settlement";
-import { toHex } from "../crypto";
+import { sha256 } from "@noble/hashes/sha2.js";
+import { hashReceipt, signReceipt, computeIdempotencyKey } from "@valeo/stratum-receipts";
+import {
+  createReceiptId,
+  createWindowId,
+  createAccountId,
+  createFacilitatorId,
+  CURRENT_RECEIPT_VERSION,
+  type Receipt,
+} from "@valeo/stratum-core";
+import { getReceiptStore, getFinalizedWindows, getCurrentWindowInfo, submitReceipt } from "../settlement";
+import { toHex, getGatewayPrivateKey, verifyPaymentSignature } from "../crypto";
 
 function serializeReceipt(sr: any) {
   return {
@@ -149,5 +158,86 @@ export default async function clearingRoutes(fastify: FastifyInstance) {
       merkleRoot: toHex(w.merkleRoot),
       anchorTxHash: w.anchorTxHash,
     }));
+  });
+
+  let directSeq = 0;
+
+  fastify.post("/v1/receipt", async (request, reply) => {
+    const body = request.body as {
+      payer: string;
+      payee: string;
+      amount: string;
+      asset?: string;
+      nonce: string;
+      signature: string;
+      chain?: string;
+    };
+
+    if (!body.payer || !body.payee || !body.amount || !body.nonce || !body.signature) {
+      return reply.status(400).send({ error: "Missing required fields: payer, payee, amount, nonce, signature" });
+    }
+
+    let sigValid = false;
+    try {
+      sigValid = verifyPaymentSignature({
+        payer: body.payer,
+        amount: body.amount,
+        asset: body.asset || "USDC",
+        payTo: body.payee,
+        nonce: body.nonce,
+        validUntil: String(Math.floor(Date.now() / 1000) + 60),
+        signature: body.signature,
+        chain: body.chain as "solana" | "base" | undefined,
+      });
+    } catch {
+      sigValid = false;
+    }
+
+    if (!sigValid) {
+      return reply.status(403).send({ error: "Invalid payment signature" });
+    }
+
+    const seq = ++directSeq;
+    const resourceHash = sha256(new TextEncoder().encode(`direct-receipt-${seq}`));
+    const receiptId = createReceiptId(`rcpt-${Date.now().toString(36)}-d${seq}`);
+
+    const receipt: Receipt = {
+      version: CURRENT_RECEIPT_VERSION,
+      receipt_id: receiptId,
+      window_id: createWindowId("pending"),
+      sequence: seq,
+      payer: createAccountId(body.payer),
+      payee: createAccountId(body.payee),
+      amount: BigInt(body.amount),
+      asset: body.asset || "USDC",
+      resource_hash: resourceHash,
+      idempotency_key: computeIdempotencyKey({
+        payer: createAccountId(body.payer),
+        payee: createAccountId(body.payee),
+        resource_hash: resourceHash,
+        amount: BigInt(body.amount),
+        nonce: body.nonce,
+      }),
+      timestamp: Date.now(),
+      facilitator_id: createFacilitatorId("mock-facilitator"),
+      nonce: body.nonce,
+    };
+
+    const signedReceipt = await signReceipt(receipt, getGatewayPrivateKey());
+    const receiptHash = hashReceipt(signedReceipt);
+    const receiptHashHex = toHex(receiptHash);
+
+    try {
+      submitReceipt(signedReceipt);
+    } catch (err) {
+      console.error("[clearing] submitReceipt error:", err);
+    }
+
+    return reply.status(201).send({
+      receiptId: receipt.receipt_id,
+      receiptHash: receiptHashHex,
+      windowId: receipt.window_id,
+      sequence: seq,
+    });
   });
 }
