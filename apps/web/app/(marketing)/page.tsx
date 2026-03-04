@@ -10,33 +10,12 @@ import ArchitectureSection from "../components/ArchitectureSection";
 import FacilitatorsSection from "../components/FacilitatorsSection";
 import TrustSection from "../components/TrustSection";
 import Footer from "../components/Footer";
+import { getStats } from "../lib/gateway";
 
 export const dynamic = "force-dynamic";
 
-async function fetchGatewayStats() {
-  const url =
-    process.env.GATEWAY_URL ||
-    process.env.NEXT_PUBLIC_GATEWAY_URL ||
-    "http://localhost:3100";
-  try {
-    const headers: Record<string, string> = {};
-    if (process.env.GATEWAY_API_KEY) {
-      headers["X-API-KEY"] = process.env.GATEWAY_API_KEY;
-    }
-    const res = await fetch(`${url}/admin/stats`, {
-      cache: "no-store",
-      signal: AbortSignal.timeout(3000),
-      headers,
-    });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch {
-    return null;
-  }
-}
-
 export default async function Home() {
-  const gw = await fetchGatewayStats();
+  const gw = await getStats();
 
   let liveStats;
   if (gw) {

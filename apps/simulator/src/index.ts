@@ -5,11 +5,10 @@ import { StratumAgent, toBase58 } from "@valeo/stratum-agent";
 ed.hashes.sha512 = sha512;
 
 const GATEWAY_URL = process.env.GATEWAY_URL || "http://localhost:3100";
+const API_KEY = process.env.STRATUM_API_KEY || "";
 const AGENT_COUNT = parseInt(process.env.AGENT_COUNT || "10", 10);
 const RPS = parseInt(process.env.RPS || "5", 10);
 const DURATION_SEC = parseInt(process.env.DURATION || "60", 10);
-const SERVICE_SLUG = "mock-api";
-const SERVICE_TARGET = "http://localhost:3300";
 
 const isRemote =
   process.argv.includes("--direct") ||
@@ -21,6 +20,20 @@ interface SimAgent {
   privateKey: Uint8Array;
 }
 
+interface SimService {
+  slug: string;
+  name: string;
+  wallet: string;
+  minPrice: number;
+  maxPrice: number;
+}
+
+const SERVICE_DEFS = [
+  { slug: "gpt4-proxy", name: "GPT-4 API Proxy", minPrice: 0.002, maxPrice: 0.01 },
+  { slug: "sd-api", name: "Stable Diffusion API", minPrice: 0.005, maxPrice: 0.02 },
+  { slug: "whisper-api", name: "Whisper Transcription", minPrice: 0.001, maxPrice: 0.005 },
+];
+
 async function generateAgents(n: number): Promise<SimAgent[]> {
   const agents: SimAgent[] = [];
   for (let i = 0; i < n; i++) {
@@ -31,38 +44,57 @@ async function generateAgents(n: number): Promise<SimAgent[]> {
   return agents;
 }
 
-async function registerService() {
-  const serviceWalletKey = ed.utils.randomSecretKey();
-  const serviceWalletPub = ed.getPublicKey(serviceWalletKey);
-  const walletAddress = toBase58(serviceWalletPub);
+function gatewayHeaders(extra?: Record<string, string>): Record<string, string> {
+  const h: Record<string, string> = { "Content-Type": "application/json", ...extra };
+  if (API_KEY) h["X-API-KEY"] = API_KEY;
+  return h;
+}
 
-  try {
-    const res = await fetch(`${GATEWAY_URL}/admin/services`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: "Mock API",
-        targetUrl: SERVICE_TARGET,
-        slug: SERVICE_SLUG,
-        pricePerRequest: 0.001,
-        walletAddress,
-      }),
-    });
-    const data = await res.json();
-    if (res.status === 201 || res.status === 200) {
-      console.log(`  Service registered: ${SERVICE_SLUG} (wallet: ${walletAddress.slice(0, 8)}...)`);
-      return walletAddress;
-    } else if (res.status === 409) {
-      console.log(`  Service already registered: ${SERVICE_SLUG}`);
-      return walletAddress;
-    } else {
-      console.log(`  Service registration: ${res.status}`, data);
-      return walletAddress;
+async function registerServices(): Promise<SimService[]> {
+  const services: SimService[] = [];
+
+  for (const def of SERVICE_DEFS) {
+    const walletKey = ed.utils.randomSecretKey();
+    const walletPub = ed.getPublicKey(walletKey);
+    const wallet = toBase58(walletPub);
+
+    try {
+      const res = await fetch(`${GATEWAY_URL}/admin/services`, {
+        method: "POST",
+        headers: gatewayHeaders(),
+        body: JSON.stringify({
+          name: def.name,
+          targetUrl: "http://localhost:3300",
+          slug: def.slug,
+          pricePerRequest: def.minPrice,
+          walletAddress: wallet,
+        }),
+      });
+      const data = await res.json();
+      if (res.status === 201 || res.status === 200) {
+        console.log(`  Service registered: ${def.slug} (wallet: ${wallet.slice(0, 8)}...)`);
+      } else if (res.status === 409) {
+        console.log(`  Service already registered: ${def.slug}`);
+      } else {
+        console.log(`  Service registration ${def.slug}: ${res.status}`, data);
+      }
+    } catch (e: any) {
+      console.error(`  Cannot reach Gateway at ${GATEWAY_URL}: ${e.message}`);
+      process.exit(1);
     }
-  } catch (e: any) {
-    console.error(`  Cannot reach Gateway at ${GATEWAY_URL}: ${e.message}`);
-    process.exit(1);
+
+    services.push({ ...def, wallet });
   }
+
+  return services;
+}
+
+function pickService(services: SimService[]): SimService {
+  return services[Math.floor(Math.random() * services.length)];
+}
+
+function randomPrice(svc: SimService): number {
+  return svc.minPrice + Math.random() * (svc.maxPrice - svc.minPrice);
 }
 
 function sleep(ms: number) {
@@ -133,12 +165,14 @@ async function sendDirectReceipt(
 async function main() {
   console.log();
   console.log("╔══════════════════════════════════════════╗");
-  console.log("║     Stratum Simulator v0.3 (Ed25519)     ║");
+  console.log("║     Stratum Simulator v0.4 (Ed25519)     ║");
   console.log("╚══════════════════════════════════════════╝");
   console.log();
   console.log(`  Gateway:    ${GATEWAY_URL}`);
+  console.log(`  API Key:    ${API_KEY ? API_KEY.slice(0, 12) + "..." : "(none)"}`);
   console.log(`  Mode:       ${isRemote ? "DIRECT (POST /v1/receipt)" : "PROXY (GET /s/service/...)"}`);
   console.log(`  Agents:     ${AGENT_COUNT} (real Ed25519 keypairs)`);
+  console.log(`  Services:   ${SERVICE_DEFS.map((s) => s.slug).join(", ")}`);
   console.log(`  RPS:        ${RPS}`);
   console.log(`  Duration:   ${DURATION_SEC}s`);
   console.log();
@@ -151,7 +185,7 @@ async function main() {
   if (agents.length > 3) console.log(`    ... and ${agents.length - 3} more`);
   console.log();
 
-  const serviceWallet = await registerService();
+  const services = await registerServices();
   console.log();
   console.log("  Starting traffic...");
   console.log();
@@ -161,35 +195,36 @@ async function main() {
   let failedRequests = 0;
   let totalLatency = 0;
   let totalVolume = 0;
-  const pricePerRequest = 0.001;
-  const priceInMicro = Math.round(pricePerRequest * 1_000_000).toString();
 
   const interval = 1000 / RPS;
   const deadline = Date.now() + DURATION_SEC * 1000;
 
   while (Date.now() < deadline) {
     const simAgent = agents[Math.floor(Math.random() * agents.length)];
+    const svc = pickService(services);
+    const price = randomPrice(svc);
+    const priceInMicro = Math.round(price * 1_000_000).toString();
     totalRequests++;
 
     try {
       if (isRemote) {
-        const result = await sendDirectReceipt(simAgent, serviceWallet!, priceInMicro);
+        const result = await sendDirectReceipt(simAgent, svc.wallet, priceInMicro);
         if (result.status === 201) {
           successfulRequests++;
           totalLatency += result.latency;
-          totalVolume += pricePerRequest;
+          totalVolume += price;
           console.log(
-            `  ✓ ${simAgent.address.slice(0, 10)}... | $${pricePerRequest.toFixed(4)} | ${result.latency}ms | receipt: ${result.receiptHash?.slice(0, 16)}...`,
+            `  ✓ ${simAgent.address.slice(0, 10)}... → ${svc.slug} | $${price.toFixed(4)} | ${result.latency}ms | receipt: ${result.receiptHash?.slice(0, 16)}...`,
           );
         } else {
           failedRequests++;
           console.log(
-            `  ✗ ${simAgent.address.slice(0, 10)}... | status ${result.status} | ${result.latency}ms`,
+            `  ✗ ${simAgent.address.slice(0, 10)}... → ${svc.slug} | status ${result.status} | ${result.latency}ms`,
           );
         }
       } else {
         const start = Date.now();
-        const url = `${GATEWAY_URL}/s/${SERVICE_SLUG}/data`;
+        const url = `${GATEWAY_URL}/s/${svc.slug}/data`;
         const res = await simAgent.agent.fetch(url);
         const latency = Date.now() - start;
 
@@ -197,21 +232,21 @@ async function main() {
           successfulRequests++;
           totalLatency += latency;
           const receiptHash = res.headers.get("x-stratum-receipt") || "—";
-          totalVolume += pricePerRequest;
+          totalVolume += price;
           console.log(
-            `  ✓ ${simAgent.address.slice(0, 10)}... | $${pricePerRequest.toFixed(4)} | ${latency}ms | receipt: ${receiptHash.slice(0, 16)}...`,
+            `  ✓ ${simAgent.address.slice(0, 10)}... → ${svc.slug} | $${price.toFixed(4)} | ${latency}ms | receipt: ${receiptHash.slice(0, 16)}...`,
           );
         } else {
           failedRequests++;
           console.log(
-            `  ✗ ${simAgent.address.slice(0, 10)}... | status ${res.status} | ${latency}ms`,
+            `  ✗ ${simAgent.address.slice(0, 10)}... → ${svc.slug} | status ${res.status} | ${latency}ms`,
           );
         }
       }
     } catch (e: any) {
       failedRequests++;
       console.log(
-        `  ✗ ${simAgent.address.slice(0, 10)}... | error: ${e.message}`,
+        `  ✗ ${simAgent.address.slice(0, 10)}... → ${svc.slug} | error: ${e.message}`,
       );
     }
 
@@ -224,6 +259,7 @@ async function main() {
   console.log("╚══════════════════════════════════════════╝");
   console.log();
   console.log(`  Mode:                ${isRemote ? "DIRECT" : "PROXY"}`);
+  console.log(`  Services:            ${services.map((s) => s.slug).join(", ")}`);
   console.log(`  Total requests:      ${totalRequests}`);
   console.log(`  Successful:          ${successfulRequests}`);
   console.log(`  Failed:              ${failedRequests}`);
