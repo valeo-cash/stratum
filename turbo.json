@@ -5,6 +5,11 @@
       "dependsOn": ["^build"],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"]
     },
+    "@valeo/web#build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "!.next/cache/**"],
+      "env": ["GATEWAY_URL", "NEXT_PUBLIC_GATEWAY_URL"]
+    },
     "dev": {
       "cache": false,
       "persistent": true
