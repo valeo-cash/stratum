@@ -1,6 +1,8 @@
 import { getServices } from "@/app/lib/gateway";
 import Link from "next/link";
 
+export const dynamic = "force-dynamic";
+
 export default async function ConsoleServicesPage() {
   const services = await getServices();
 

@@ -2,6 +2,8 @@ import { getStats } from "@/app/lib/gateway";
 import Link from "next/link";
 import CopyButton from "@/app/components/console/CopyButton";
 
+export const dynamic = "force-dynamic";
+
 function stateBadge(state: string) {
   switch (state) {
     case "OPEN": return "bg-[#D1FAE5] text-[#065F46]";

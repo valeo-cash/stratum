@@ -1,8 +1,10 @@
 import { getStats, getReceipts } from "@/app/lib/gateway";
 import { DollarSign, Fuel, Server, TrendingUp } from "lucide-react";
-import dynamic from "next/dynamic";
+import nextDynamic from "next/dynamic";
 
-const LiveFeed = dynamic(() => import("@/app/components/console/LiveFeed"), { ssr: false });
+export const dynamic = "force-dynamic";
+
+const LiveFeed = nextDynamic(() => import("@/app/components/console/LiveFeed"), { ssr: false });
 
 export default async function ConsoleDashboardPage() {
   const stats = await getStats();

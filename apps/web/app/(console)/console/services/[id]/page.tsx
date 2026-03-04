@@ -1,5 +1,7 @@
 import { getService, getReceipts } from "@/app/lib/gateway";
 import { notFound } from "next/navigation";
+
+export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import CopyButton from "@/app/components/console/CopyButton";

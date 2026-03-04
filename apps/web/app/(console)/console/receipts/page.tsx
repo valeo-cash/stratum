@@ -1,5 +1,7 @@
 import { getReceipts } from "@/app/lib/gateway";
 
+export const dynamic = "force-dynamic";
+
 export default async function ConsoleReceiptsPage() {
   const receipts = await getReceipts({ limit: 100 });
 
