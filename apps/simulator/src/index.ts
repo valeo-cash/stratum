@@ -78,7 +78,7 @@ async function signPaymentDirect(
   payer: string,
   payee: string,
   amount: string,
-): Promise<{ signature: string; nonce: string }> {
+): Promise<{ signature: string; nonce: string; validUntil: string }> {
   const nonce = Math.random().toString(36).slice(2) + Date.now().toString(36);
   const validUntil = String(Math.floor(Date.now() / 1000) + 60);
 
@@ -91,7 +91,7 @@ async function signPaymentDirect(
   const messageBytes = new TextEncoder().encode(canonical);
   const sig = await ed.sign(messageBytes, privateKey);
 
-  return { signature: toHex(sig), nonce };
+  return { signature: toHex(sig), nonce, validUntil };
 }
 
 async function sendDirectReceipt(
@@ -100,7 +100,7 @@ async function sendDirectReceipt(
   amount: string,
 ): Promise<{ status: number; receiptHash?: string; latency: number }> {
   const start = Date.now();
-  const { signature, nonce } = await signPaymentDirect(
+  const { signature, nonce, validUntil } = await signPaymentDirect(
     agent.privateKey,
     agent.address,
     payee,
@@ -117,6 +117,7 @@ async function sendDirectReceipt(
       asset: "USDC",
       nonce,
       signature,
+      validUntil,
       chain: "solana",
     }),
   });

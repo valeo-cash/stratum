@@ -170,11 +170,19 @@ export default async function clearingRoutes(fastify: FastifyInstance) {
       asset?: string;
       nonce: string;
       signature: string;
+      validUntil?: string;
       chain?: string;
     };
 
     if (!body.payer || !body.payee || !body.amount || !body.nonce || !body.signature) {
       return reply.status(400).send({ error: "Missing required fields: payer, payee, amount, nonce, signature" });
+    }
+
+    const validUntil = body.validUntil || String(Math.floor(Date.now() / 1000) + 60);
+
+    const nowSec = Math.floor(Date.now() / 1000);
+    if (parseInt(validUntil, 10) < nowSec) {
+      return reply.status(403).send({ error: "Payment expired" });
     }
 
     let sigValid = false;
@@ -185,7 +193,7 @@ export default async function clearingRoutes(fastify: FastifyInstance) {
         asset: body.asset || "USDC",
         payTo: body.payee,
         nonce: body.nonce,
-        validUntil: String(Math.floor(Date.now() / 1000) + 60),
+        validUntil,
         signature: body.signature,
         chain: body.chain as "solana" | "base" | undefined,
       });
