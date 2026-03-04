@@ -23,10 +23,10 @@ export default async function ConsoleDashboardPage() {
   }
 
   const statCards = [
-    { label: "Total Receipts", value: stats.totalReceipts.toLocaleString(), icon: DollarSign, color: "#10B981" },
-    { label: "Volume (USDC)", value: `$${stats.totalVolumeUSDC.toFixed(2)}`, icon: Fuel, color: "#003FFF" },
-    { label: "Active Services", value: String(stats.activeServices), icon: Server, color: "#D97706" },
-    { label: "Windows Finalized", value: String(stats.windowsFinalized), icon: TrendingUp, color: "#6366F1" },
+    { label: "Total Receipts", value: (stats.totalReceipts ?? 0).toLocaleString(), icon: DollarSign, color: "#10B981" },
+    { label: "Volume (USDC)", value: `$${(stats.totalVolumeUSDC ?? 0).toFixed(2)}`, icon: Fuel, color: "#003FFF" },
+    { label: "Active Services", value: String(stats.activeServices ?? 0), icon: Server, color: "#D97706" },
+    { label: "Windows Finalized", value: String(stats.windowsFinalized ?? 0), icon: TrendingUp, color: "#6366F1" },
   ];
 
   return (
@@ -58,8 +58,8 @@ export default async function ConsoleDashboardPage() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
             <div><p className="text-[11px] text-[#9CA3AF] mb-1">Window ID</p><p className="text-sm font-mono text-[#0A0A0A]">{stats.currentWindow.windowId}</p></div>
             <div><p className="text-[11px] text-[#9CA3AF] mb-1">Receipts</p><p className="text-sm font-mono text-[#0A0A0A]">{stats.currentWindow.receiptCount}</p></div>
-            <div><p className="text-[11px] text-[#9CA3AF] mb-1">Gross Volume</p><p className="text-sm font-mono text-[#0A0A0A]">${stats.currentWindow.grossVolume.toFixed(2)}</p></div>
-            <div><p className="text-[11px] text-[#9CA3AF] mb-1">Opened</p><p className="text-sm font-mono text-[#0A0A0A]">{new Date(stats.currentWindow.openedAt).toLocaleDateString()}</p></div>
+            <div><p className="text-[11px] text-[#9CA3AF] mb-1">Gross Volume</p><p className="text-sm font-mono text-[#0A0A0A]">${(Number(stats.currentWindow.grossVolume) || 0).toFixed(2)}</p></div>
+            <div><p className="text-[11px] text-[#9CA3AF] mb-1">Opened</p><p className="text-sm font-mono text-[#0A0A0A]">{stats.currentWindow.openedAt ? new Date(stats.currentWindow.openedAt).toLocaleDateString() : "—"}</p></div>
           </div>
         </div>
       )}
@@ -95,7 +95,7 @@ export default async function ConsoleDashboardPage() {
                 {recentReceipts.map((r: any) => (
                   <tr key={r.id} className="border-t border-[#E5E7EB]">
                     <td className="py-2.5 text-[#9CA3AF] font-mono text-xs">{r.payer?.slice(0, 6)}...{r.payer?.slice(-4)}</td>
-                    <td className="py-2.5 text-[#0A0A0A] font-mono text-xs">${r.amount?.toFixed(4)}</td>
+                    <td className="py-2.5 text-[#0A0A0A] font-mono text-xs">${(Number(r.amount) || 0).toFixed(4)}</td>
                     <td className="py-2.5 text-[#6B7280] font-mono text-xs">{r.windowId}</td>
                     <td className="py-2.5 text-[#9CA3AF] font-mono text-xs whitespace-nowrap">{r.timestamp ? new Date(r.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false }) : "—"}</td>
                   </tr>
