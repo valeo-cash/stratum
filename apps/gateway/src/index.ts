@@ -118,8 +118,10 @@ const start = async () => {
     await loadServicesFromDb();
     await retryPendingWindows();
     startSettlementLoop();
-    await server.listen({ port: 3100, host: "0.0.0.0" });
-    console.log("Gateway listening on http://0.0.0.0:3100");
+    const port = parseInt(process.env.PORT || "3100", 10);
+    const host = process.env.HOST || "0.0.0.0";
+    await server.listen({ port, host });
+    console.log(`Gateway listening on http://${host}:${port}`);
     console.log(`API key auth: ${process.env.REQUIRE_API_KEYS === "true" ? "ENABLED" : "DISABLED (dev mode)"}`);
   } catch (err) {
     server.log.error(err);
