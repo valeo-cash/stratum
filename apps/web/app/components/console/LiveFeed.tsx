@@ -84,7 +84,7 @@ export default function LiveFeed() {
       >
         {receipts.length === 0 && (
           <p className="text-[#9CA3AF] text-center py-8">
-            Waiting for receipts...
+            No receipts yet — waiting for agent traffic.
           </p>
         )}
         {receipts.map((r, i) => (
@@ -100,7 +100,7 @@ export default function LiveFeed() {
               {r.payerAddress.slice(0, 6)}...{r.payerAddress.slice(-4)}
             </span>
             <span className="text-[#0A0A0A] shrink-0 w-[70px] text-right">
-              ${r.amount.toFixed(4)}
+              ${(Number(r.amount) || 0).toFixed(4)}
             </span>
             <span className="text-[#9CA3AF] truncate">{r.route}</span>
           </div>

@@ -2,14 +2,25 @@
 
 import CountUp from "./CountUp";
 
-const stats = [
+interface StatItem {
+  label: string;
+  value: number;
+  suffix?: string;
+  prefix?: string;
+  decimals?: number;
+  live?: boolean;
+}
+
+const defaultStats: StatItem[] = [
   { label: "Logical TPS", value: 1000000, suffix: "+", live: true },
   { label: "Compression Ratio", value: 54256, suffix: ":1" },
   { label: "Cost per Txn", prefix: "$", value: 0.000005, decimals: 6 },
   { label: "Gas Saved", prefix: "$", value: 847, suffix: "K+" },
 ];
 
-export default function StatsRow() {
+export default function StatsRow({ liveStats }: { liveStats?: StatItem[] }) {
+  const stats = liveStats ?? defaultStats;
+
   return (
     <section>
       <div className="max-w-[1200px] mx-auto px-6 lg:px-12 py-10 lg:py-14">

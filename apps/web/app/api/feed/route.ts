@@ -1,37 +1,25 @@
 export const dynamic = "force-dynamic";
 
-const agents = Array.from({ length: 20 }, () => {
-  const hex = "0123456789abcdef";
-  let addr = "0x";
-  for (let i = 0; i < 40; i++) addr += hex[Math.floor(Math.random() * 16)];
-  return addr;
-});
+const GATEWAY_URL =
+  process.env.GATEWAY_URL ||
+  process.env.NEXT_PUBLIC_GATEWAY_URL ||
+  "http://localhost:3100";
 
-const services = [
-  { slug: "gpt4-proxy", name: "GPT-4 Proxy" },
-  { slug: "sd-api", name: "Stable Diffusion API" },
-  { slug: "whisper", name: "Whisper Transcription" },
-];
-
-const routes = ["/v1/chat", "/v1/generate", "/v1/transcribe"];
-
-function mockReceipt() {
-  const svc = services[Math.floor(Math.random() * services.length)];
-  const amount = 0.001 + Math.random() * 0.049;
-  return {
-    id: Math.random().toString(36).slice(2, 10),
-    timestamp: new Date().toISOString(),
-    payerAddress: agents[Math.floor(Math.random() * agents.length)],
-    payeeAddress: agents[Math.floor(Math.random() * agents.length)],
-    amount: Math.round(amount * 1e6) / 1e6,
-    asset: "USDC",
-    route: `/${svc.slug}${routes[Math.floor(Math.random() * routes.length)]}`,
-    service: svc.name,
-  };
+async function fetchReceipts(limit: number) {
+  try {
+    const res = await fetch(`${GATEWAY_URL}/v1/receipts?limit=${limit}`, {
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    return await res.json();
+  } catch {
+    return [];
+  }
 }
 
 export async function GET() {
   const encoder = new TextEncoder();
+  let lastSeenId = "";
 
   const stream = new ReadableStream({
     start(controller) {
@@ -42,28 +30,52 @@ export async function GET() {
         clearTimeout(timeout);
         if (!closed) {
           closed = true;
-          try { controller.close(); } catch {}
+          try {
+            controller.close();
+          } catch {}
         }
       }
 
-      const interval = setInterval(() => {
+      controller.enqueue(encoder.encode(": connected\n\n"));
+
+      const interval = setInterval(async () => {
         if (closed) return;
         try {
-          const receipt = mockReceipt();
-          const data = `data: ${JSON.stringify(receipt)}\n\n`;
-          controller.enqueue(encoder.encode(data));
+          const receipts = await fetchReceipts(10);
+          if (!Array.isArray(receipts) || receipts.length === 0) return;
+
+          const newReceipts = lastSeenId
+            ? receipts.filter(
+                (r: any) => r.id !== lastSeenId && r.receiptHash !== lastSeenId,
+              )
+            : receipts.slice(0, 3);
+
+          if (newReceipts.length > 0) {
+            lastSeenId =
+              newReceipts[0].receiptHash || newReceipts[0].id || "";
+          }
+
+          for (const r of newReceipts.reverse()) {
+            const feedItem = {
+              id: r.receiptHash || r.id || Math.random().toString(36).slice(2),
+              timestamp: r.timestamp || new Date().toISOString(),
+              payerAddress: r.payer || r.payerAddress || "unknown",
+              amount: typeof r.amount === "number" ? r.amount : Number(r.amount) || 0,
+              route: r.resource || r.resourcePath || "/api",
+              service: r.asset || "USDC",
+            };
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify(feedItem)}\n\n`),
+            );
+          }
         } catch {
-          cleanup();
+          // Gateway unreachable — skip this tick
         }
-      }, 500);
+      }, 2000);
 
       const timeout = setTimeout(cleanup, 5 * 60 * 1000);
-
-      controller.enqueue(encoder.encode(": connected\n\n"));
     },
-    cancel() {
-      // Client disconnected — no action needed, GC cleans up
-    },
+    cancel() {},
   });
 
   return new Response(stream, {
