@@ -7,8 +7,13 @@ const GATEWAY_URL =
 
 async function fetchReceipts(limit: number) {
   try {
+    const headers: Record<string, string> = {};
+    if (process.env.GATEWAY_API_KEY) {
+      headers["X-API-KEY"] = process.env.GATEWAY_API_KEY;
+    }
     const res = await fetch(`${GATEWAY_URL}/v1/receipts?limit=${limit}`, {
       cache: "no-store",
+      headers,
     });
     if (!res.ok) return [];
     return await res.json();

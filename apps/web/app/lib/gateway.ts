@@ -2,7 +2,11 @@ const BASE = process.env.GATEWAY_URL || process.env.NEXT_PUBLIC_GATEWAY_URL || "
 
 async function gw<T = any>(path: string): Promise<T | null> {
   try {
-    const res = await fetch(`${BASE}${path}`, { cache: "no-store" });
+    const headers: Record<string, string> = {};
+    if (process.env.GATEWAY_API_KEY) {
+      headers["X-API-KEY"] = process.env.GATEWAY_API_KEY;
+    }
+    const res = await fetch(`${BASE}${path}`, { cache: "no-store", headers });
     if (!res.ok) return null;
     return res.json();
   } catch {
