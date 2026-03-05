@@ -2,6 +2,23 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Footer from "../../components/Footer";
 import ApiKeyForm from "../../components/ApiKeyForm";
+import CodeBlock from "../../components/CodeBlock";
+
+const QUICKSTART_CODE = `npm install @valeostratum/facilitator
+
+import express from 'express';
+import { StratumFacilitator } from '@valeostratum/facilitator';
+
+const app = express();
+
+const facilitator = new StratumFacilitator({
+  apiKey: 'sk_live_your_key_here',
+  webhookSecret: 'whsec_your_secret',
+  solanaPrivateKey: process.env.SOLANA_PRIVATE_KEY,
+});
+
+app.post('/settle', express.raw({ type: '*/*' }), facilitator.handler());
+app.listen(3200, () => console.log('Facilitator ready on port 3200'));`;
 
 export const metadata: Metadata = {
   title: "Facilitators — Valeo Stratum",
@@ -200,6 +217,37 @@ export default function FacilitatorsPage() {
               network. No approval required.
             </p>
             <ApiKeyForm />
+          </div>
+        </section>
+
+        {/* Integrate in 10 Lines */}
+        <section className="py-20 px-6 lg:px-16 border-t border-[#F3F4F6] bg-[#FAFAFA]">
+          <div className="max-w-3xl">
+            <p className="text-[11px] font-mono text-[#9CA3AF] uppercase tracking-[0.2em] mb-10">
+              Integration
+            </p>
+            <h2 className="text-[#0A0A0A] text-2xl font-medium mb-3">
+              Integrate in 10 lines
+            </h2>
+            <p className="text-[#6B7280] text-sm leading-relaxed mb-8">
+              Install the SDK, paste the snippet, and deploy. Settlement batches
+              arrive automatically every 60 seconds.
+            </p>
+            <CodeBlock code={QUICKSTART_CODE} />
+            <div className="mt-10 space-y-6">
+              {[
+                { n: 1, text: "Get your API key above" },
+                { n: 2, text: "npm install and paste the code" },
+                { n: 3, text: "Deploy — settlement batches arrive every 60 seconds" },
+              ].map((s) => (
+                <div key={s.n} className="flex gap-4 items-start">
+                  <span className="inline-flex items-center justify-center w-7 h-7 rounded-none bg-[#003FFF] text-white text-xs font-medium shrink-0 mt-0.5">
+                    {s.n}
+                  </span>
+                  <p className="text-[#0A0A0A] text-sm">{s.text}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
 
