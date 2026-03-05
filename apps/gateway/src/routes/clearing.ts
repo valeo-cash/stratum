@@ -11,6 +11,7 @@ import {
 } from "@valeo/stratum-core";
 import { getReceiptStore, getFinalizedWindows, getCurrentWindowInfo, submitReceipt } from "../settlement";
 import { toHex, getGatewayPrivateKey, verifyPaymentSignature } from "../crypto";
+import { prisma } from "../db";
 
 function serializeReceipt(sr: any) {
   return {
@@ -29,7 +30,90 @@ function serializeReceipt(sr: any) {
   };
 }
 
+let analyticsCache: any = null;
+let analyticsCacheTime = 0;
+const ANALYTICS_TTL = 30_000;
+
 export default async function clearingRoutes(fastify: FastifyInstance) {
+  fastify.get("/v1/analytics", async () => {
+    if (analyticsCache && Date.now() - analyticsCacheTime < ANALYTICS_TTL) {
+      return analyticsCache;
+    }
+
+    const now = new Date();
+    const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+    const [
+      receiptTotals,
+      receipt24h,
+      windowsFinalized,
+      windowAgg,
+      window24h,
+      window24hAgg,
+      activeServices,
+    ] = await Promise.all([
+      prisma.$queryRawUnsafe<[{ count: bigint; volume: bigint }]>(
+        `SELECT COUNT(*)::bigint AS count, COALESCE(SUM(CAST(amount AS BIGINT)), 0)::bigint AS volume FROM gw_receipts`,
+      ),
+      prisma.$queryRawUnsafe<[{ count: bigint; volume: bigint }]>(
+        `SELECT COUNT(*)::bigint AS count, COALESCE(SUM(CAST(amount AS BIGINT)), 0)::bigint AS volume FROM gw_receipts WHERE "createdAt" > $1`,
+        twentyFourHoursAgo,
+      ),
+      prisma.gatewayWindow.count({ where: { state: "settled" } }),
+      prisma.gatewayWindow.aggregate({
+        _sum: { transferCount: true },
+        where: { state: "settled" },
+      }),
+      prisma.gatewayWindow.count({
+        where: { state: "settled", openedAt: { gte: twentyFourHoursAgo } },
+      }),
+      prisma.gatewayWindow.aggregate({
+        _sum: { transferCount: true },
+        where: { state: "settled", openedAt: { gte: twentyFourHoursAgo } },
+      }),
+      prisma.gatewayService.count(),
+    ]);
+
+    const totalGrossReceipts = Number(receiptTotals[0]?.count ?? 0n);
+    const totalGrossVolume = (receiptTotals[0]?.volume ?? 0n).toString();
+    const totalNetTransfers = windowAgg._sum.transferCount ?? 0;
+    const compressionRatio = totalNetTransfers > 0
+      ? Math.round((totalGrossReceipts / totalNetTransfers) * 10) / 10
+      : 0;
+
+    const receipts24h = Number(receipt24h[0]?.count ?? 0n);
+    const volume24h = (receipt24h[0]?.volume ?? 0n).toString();
+    const net24h = window24hAgg._sum.transferCount ?? 0;
+    const compression24h = net24h > 0
+      ? Math.round((receipts24h / net24h) * 10) / 10
+      : 0;
+
+    const result = {
+      protocol: "stratum-x402",
+      totalGrossReceipts,
+      totalGrossVolume,
+      totalGrossVolumeUSDC: Number(BigInt(totalGrossVolume)) / 1_000_000,
+      totalNetTransfers,
+      compressionRatio,
+      windowsFinalized,
+      activeServices,
+      chains: ["solana"],
+      anchorProgram: process.env.ANCHOR_PROGRAM_ID ?? null,
+      last24h: {
+        grossReceipts: receipts24h,
+        grossVolume: volume24h,
+        grossVolumeUSDC: Number(BigInt(volume24h)) / 1_000_000,
+        netTransfers: net24h,
+        compression: compression24h,
+      },
+      updatedAt: now.toISOString(),
+    };
+
+    analyticsCache = result;
+    analyticsCacheTime = Date.now();
+    return result;
+  });
+
   fastify.get("/v1/status", async () => {
     const receipts = getReceiptStore();
     const windows = getFinalizedWindows();

@@ -17,6 +17,8 @@ export interface SolanaAnchorConfig {
   keypair: Keypair;
 }
 
+const MEMO_PROGRAM_ID = new PublicKey("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr");
+
 /** sha256("global:anchor_window")[0..8] */
 const DISCRIMINATOR = createHash("sha256")
   .update("global:anchor_window")
@@ -143,6 +145,7 @@ export class SolanaAnchor implements ChainAnchor {
     const extra = record as AnchorRecord & {
       gross_volume?: bigint;
       net_volume?: bigint;
+      memo?: string;
     };
     const grossVolume = extra.gross_volume ?? 0n;
     const netVolume = extra.net_volume ?? 0n;
@@ -166,6 +169,16 @@ export class SolanaAnchor implements ChainAnchor {
     });
 
     const tx = new Transaction().add(ix);
+
+    if (extra.memo) {
+      tx.add(
+        new TransactionInstruction({
+          keys: [{ pubkey: this.keypair.publicKey, isSigner: true, isWritable: false }],
+          programId: MEMO_PROGRAM_ID,
+          data: Buffer.from(extra.memo, "utf-8"),
+        }),
+      );
+    }
 
     try {
       const signature = await sendAndConfirmTransaction(

@@ -370,7 +370,35 @@ export async function runSettlementCycle(): Promise<SignedWindowHead | null> {
       }
       const anchorNetting = computeMultilateralNetting({ window_id: window.windowId, positions: nettingPositions });
 
-      const anchorRecord: AnchorRecord & { gross_volume: bigint; net_volume: bigint } = {
+      const services = listServices();
+      const serviceSet = new Set<string>();
+      for (const sr of receipts) {
+        const payee = sr.receipt.payee as string;
+        for (const svc of services) {
+          if (svc.walletAddress === payee || Object.values(svc.wallets).includes(payee)) {
+            serviceSet.add(svc.slug);
+            break;
+          }
+        }
+      }
+
+      const compressionVal = anchorNetting.transfer_count > 0
+        ? (receipts.length / anchorNetting.transfer_count).toFixed(1) + "x"
+        : "1x";
+
+      const memo = JSON.stringify({
+        protocol: "stratum-x402",
+        version: "1",
+        window: window.windowId as string,
+        grossReceipts: receipts.length,
+        grossVolume: grossVolume.toString(),
+        netTransfers: anchorNetting.transfer_count,
+        netVolume: anchorNetting.net_volume.toString(),
+        compression: compressionVal,
+        services: Array.from(serviceSet),
+      });
+
+      const anchorRecord: AnchorRecord & { gross_volume: bigint; net_volume: bigint; memo: string } = {
         version: 1,
         chain: "solana",
         tx_hash: new Uint8Array(32),
@@ -381,6 +409,7 @@ export async function runSettlementCycle(): Promise<SignedWindowHead | null> {
         timestamp: Date.now(),
         gross_volume: grossVolume,
         net_volume: anchorNetting.net_volume,
+        memo,
       };
 
       const result = await anchor.anchor(anchorRecord);

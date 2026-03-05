@@ -1,58 +1,62 @@
-# @valeo/stratum-facilitator
+# @valeostratum/facilitator
 
-Handle Stratum settlement webhooks and execute Solana USDC transfers with ~10 lines of code.
+Run a Stratum settlement facilitator in 4 lines of code.
 
 ## Install
 
 ```bash
-npm install @valeo/stratum-facilitator
+npm install @valeostratum/facilitator
 ```
 
-## Usage (Express)
+## Quickstart
 
-```typescript
-import express from "express";
-import { StratumFacilitator } from "@valeo/stratum-facilitator";
-
-const app = express();
+```javascript
+const { StratumFacilitator } = require('@valeostratum/facilitator');
 
 const facilitator = new StratumFacilitator({
-  apiKey: process.env.STRATUM_API_KEY!,
-  webhookSecret: process.env.STRATUM_WEBHOOK_SECRET!,
-  solanaPrivateKey: process.env.SOLANA_PRIVATE_KEY!,
+  apiKey: process.env.STRATUM_API_KEY,
+  solanaPrivateKey: process.env.SOLANA_PRIVATE_KEY,
 });
 
-app.post("/settle", express.raw({ type: "*/*" }), facilitator.handler());
-
-app.listen(3200, () => console.log("Facilitator ready on :3200"));
+facilitator.start();
 ```
 
-## Usage (any framework)
+That's it. The SDK:
 
-```typescript
-const facilitator = new StratumFacilitator({
-  apiKey: process.env.STRATUM_API_KEY!,
-  webhookSecret: process.env.STRATUM_WEBHOOK_SECRET!,
-  solanaPrivateKey: process.env.SOLANA_PRIVATE_KEY!,
+1. Starts an HTTP server on port 3200 with a `POST /settle` endpoint
+2. Generates a webhook secret automatically
+3. If `PUBLIC_URL` is set, registers the webhook with the Stratum Gateway
+4. Verifies incoming HMAC signatures
+5. Executes Solana USDC transfers
+6. Confirms settlement back to the Gateway
+
+## Events
+
+```javascript
+facilitator.on('batch', (batch) => {
+  console.log(`Received batch ${batch.batch_id} with ${batch.transfers.length} transfers`);
 });
 
-// In your HTTP handler:
-const result = await facilitator.processWebhook(rawBody, signatureHeader);
-// result: { success: boolean, txHashes: string[], batchId?: string }
+facilitator.on('settled', (result) => {
+  console.log(`Settled batch ${result.batchId}: ${result.txHashes.length} transactions`);
+});
+
+facilitator.on('error', (err) => {
+  console.error('Settlement error:', err.message);
+});
 ```
 
 ## Configuration
 
-```typescript
+```javascript
 new StratumFacilitator({
-  apiKey: "sk_live_...",              // Facilitator API key from Stratum
-  webhookSecret: "whsec_...",        // HMAC secret for verifying webhooks
-  solanaPrivateKey: "<base64>",      // Base64-encoded Solana keypair
-  gatewayUrl: "https://...",         // Default: https://gateway.stratumx402.com
-  solanaRpcUrl: "https://...",       // Default: https://api.mainnet-beta.solana.com
-  usdcMint: "EPjFWdd5...",          // Default: mainnet USDC mint
-  onSettle: (batch, txHashes) => {}, // Called after successful settlement
-  onError: (error) => {},            // Called on any error
+  apiKey: 'sk_live_...',               // required: Facilitator API key
+  solanaPrivateKey: '<base64>',        // required: Base64-encoded Solana keypair
+  port: 3200,                         // optional, default: 3200
+  publicUrl: 'https://my-server.com', // optional, reads PUBLIC_URL env
+  gatewayUrl: 'https://...',          // optional, default: gateway.stratumx402.com
+  solanaRpcUrl: 'https://...',        // optional, default: mainnet
+  usdcMint: 'EPjFWdd5...',           // optional, default: mainnet USDC
 });
 ```
 
@@ -60,16 +64,33 @@ new StratumFacilitator({
 
 ```
 STRATUM_API_KEY=sk_live_...
-STRATUM_WEBHOOK_SECRET=whsec_...
 SOLANA_PRIVATE_KEY=<base64 keypair>
+PUBLIC_URL=https://your-server.com    # for auto webhook registration
 SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
 ```
 
-## How it works
+## Bring Your Own Server
 
-1. Stratum sends a webhook POST with a settlement batch and HMAC signature
-2. The SDK verifies the `X-Stratum-Signature` header
-3. For each Solana transfer, it creates SPL Token `transferChecked` instructions
-4. Transfers are batched into transactions (max 10 per tx) and sent on-chain
-5. Transaction hashes are confirmed back to the Stratum Gateway
-6. Your `onSettle` callback fires with the batch and tx hashes
+If you already have an Express/Fastify/etc. server, use `handler()` instead of `start()`:
+
+```javascript
+const express = require('express');
+const { StratumFacilitator } = require('@valeostratum/facilitator');
+
+const app = express();
+
+const facilitator = new StratumFacilitator({
+  apiKey: process.env.STRATUM_API_KEY,
+  solanaPrivateKey: process.env.SOLANA_PRIVATE_KEY,
+});
+
+app.post('/settle', express.raw({ type: '*/*' }), facilitator.handler());
+app.listen(3200);
+```
+
+Or use `processWebhook()` directly for any framework:
+
+```javascript
+const result = await facilitator.processWebhook(rawBody, signatureHeader);
+// { success: boolean, txHashes: string[], batchId?: string }
+```

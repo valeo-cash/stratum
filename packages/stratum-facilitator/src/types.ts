@@ -18,13 +18,12 @@ export interface SettlementBatch {
 
 export interface FacilitatorConfig {
   apiKey: string;
-  webhookSecret: string;
   solanaPrivateKey: string;
+  port?: number;
+  publicUrl?: string;
   gatewayUrl?: string;
   solanaRpcUrl?: string;
   usdcMint?: string;
-  onSettle?: (batch: SettlementBatch, txHashes: string[]) => void;
-  onError?: (error: Error) => void;
 }
 
 export interface SettlementResult {

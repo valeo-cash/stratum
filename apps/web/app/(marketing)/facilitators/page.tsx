@@ -6,19 +6,16 @@ import CodeBlock from "../../components/CodeBlock";
 
 const QUICKSTART_CODE = `npm install @valeostratum/facilitator
 
-import express from 'express';
-import { StratumFacilitator } from '@valeostratum/facilitator';
-
-const app = express();
+const { StratumFacilitator } = require('@valeostratum/facilitator');
 
 const facilitator = new StratumFacilitator({
   apiKey: 'sk_live_your_key_here',
-  webhookSecret: 'whsec_your_secret',
   solanaPrivateKey: process.env.SOLANA_PRIVATE_KEY,
 });
 
-app.post('/settle', express.raw({ type: '*/*' }), facilitator.handler());
-app.listen(3200, () => console.log('Facilitator ready on port 3200'));`;
+facilitator.start();
+// Stratum Facilitator running on port 3200
+// Ready to receive settlement batches`;
 
 export const metadata: Metadata = {
   title: "Facilitators — Valeo Stratum",
@@ -227,7 +224,7 @@ export default function FacilitatorsPage() {
               Integration
             </p>
             <h2 className="text-[#0A0A0A] text-2xl font-medium mb-3">
-              Integrate in 10 lines
+              Integrate in 4 lines
             </h2>
             <p className="text-[#6B7280] text-sm leading-relaxed mb-8">
               Install the SDK, paste the snippet, and deploy. Settlement batches
