@@ -311,42 +311,47 @@ export async function runSettlementCycle(): Promise<SignedWindowHead | null> {
         });
       }
 
-      // If no webhook handled it, execute direct settlement
-      if (!webhookDelivered && settlementRouter && netTransfers.length > 0) {
-        try {
-          const results = await settlementRouter.executeBatch(netTransfers);
-          windowSettlementResults = results;
+      // If no webhook handled it, try direct settlement or log
+      if (!webhookDelivered && netTransfers.length > 0) {
+        if (settlementRouter) {
+          try {
+            const results = await settlementRouter.executeBatch(netTransfers);
+            windowSettlementResults = results;
 
-          for (const r of results) {
-            for (const t of r.transfers) {
-              const amountUSDC = (Number(t.amount) / 1_000_000).toFixed(6);
-              if (t.status === "confirmed") {
-                console.log(`[settlement] Transfer: ${amountUSDC} USDC from ${t.from.slice(0, 12)}... to ${t.to.slice(0, 12)}... on ${r.chain} (tx: ${t.txHash.slice(0, 16)}...)`);
-              } else {
-                console.log(`[settlement] Transfer FAILED: ${amountUSDC} USDC from ${t.from.slice(0, 12)}... to ${t.to.slice(0, 12)}... on ${r.chain}: ${t.error}`);
+            for (const r of results) {
+              for (const t of r.transfers) {
+                const amountUSDC = (Number(t.amount) / 1_000_000).toFixed(6);
+                if (t.status === "confirmed") {
+                  console.log(`[settlement] Transfer: ${amountUSDC} USDC from ${t.from.slice(0, 12)}... to ${t.to.slice(0, 12)}... on ${r.chain} (tx: ${t.txHash.slice(0, 16)}...)`);
+                } else {
+                  console.log(`[settlement] Transfer FAILED: ${amountUSDC} USDC from ${t.from.slice(0, 12)}... to ${t.to.slice(0, 12)}... on ${r.chain}: ${t.error}`);
+                }
               }
             }
+
+            const solCount = results.filter((r) => r.chain === "solana").reduce((s, r) => s + r.transfers.length, 0);
+            const baseCount = results.filter((r) => r.chain === "base").reduce((s, r) => s + r.transfers.length, 0);
+            const totalSettled = results.reduce((s, r) => s + r.totalVolume, 0n);
+            const totalUSDC = (Number(totalSettled) / 1_000_000).toFixed(2);
+
+            const parts: string[] = [];
+            if (solCount > 0) parts.push(`solana (${solCount})`);
+            if (baseCount > 0) parts.push(`base (${baseCount})`);
+
+            console.log(`[settlement] Settled ${solCount + baseCount} transfers on ${parts.join(" + ")}, total $${totalUSDC} USDC`);
+
+            if (dbBatch) {
+              prisma.settlementBatch.update({
+                where: { id: dbBatch.id },
+                data: { status: "settled" },
+              }).catch((e) => console.error("[settlement] Failed to update batch status:", e.message));
+            }
+          } catch (err) {
+            console.error("[settlement] Real settlement failed, continuing with anchor:", err);
           }
-
-          const solCount = results.filter((r) => r.chain === "solana").reduce((s, r) => s + r.transfers.length, 0);
-          const baseCount = results.filter((r) => r.chain === "base").reduce((s, r) => s + r.transfers.length, 0);
-          const totalSettled = results.reduce((s, r) => s + r.totalVolume, 0n);
-          const totalUSDC = (Number(totalSettled) / 1_000_000).toFixed(2);
-
-          const parts: string[] = [];
-          if (solCount > 0) parts.push(`solana (${solCount})`);
-          if (baseCount > 0) parts.push(`base (${baseCount})`);
-
-          console.log(`[settlement] Settled ${solCount + baseCount} transfers on ${parts.join(" + ")}, total $${totalUSDC} USDC`);
-
-          if (dbBatch) {
-            prisma.settlementBatch.update({
-              where: { id: dbBatch.id },
-              data: { status: "settled" },
-            }).catch((e) => console.error("[settlement] Failed to update batch status:", e.message));
-          }
-        } catch (err) {
-          console.error("[settlement] Real settlement failed, continuing with anchor:", err);
+        } else {
+          const volUSDC = (Number(nettingResult.net_volume ?? 0n) / 1_000_000).toFixed(2);
+          console.log(`[settlement] No facilitator webhooks or settlement chains configured — ${netTransfers.length} net transfers ($${volUSDC} USDC) recorded but not settled`);
         }
       }
 
