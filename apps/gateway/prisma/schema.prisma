@@ -76,6 +76,7 @@ model SettlementBatch {
   transfers     String
   totalVolume   String
   status        String    @default("pending")
+  facilitatorId String?
   anchorTxHash  String?
   webhookSentAt DateTime?
   confirmedAt   DateTime?
@@ -84,6 +85,7 @@ model SettlementBatch {
 
   @@index([windowId])
   @@index([status])
+  @@index([facilitatorId])
   @@map("gw_settlement_batches")
 }
 

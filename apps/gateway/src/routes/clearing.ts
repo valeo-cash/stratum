@@ -51,6 +51,9 @@ export default async function clearingRoutes(fastify: FastifyInstance) {
       window24h,
       window24hAgg,
       activeServices,
+      serviceStats,
+      facilitatorStats,
+      facilitatorWebhooks,
     ] = await Promise.all([
       prisma.$queryRawUnsafe<[{ count: bigint; volume: bigint }]>(
         `SELECT COUNT(*)::bigint AS count, COALESCE(SUM(CAST(amount AS BIGINT)), 0)::bigint AS volume FROM gw_receipts`,
@@ -72,6 +75,28 @@ export default async function clearingRoutes(fastify: FastifyInstance) {
         where: { state: "settled", openedAt: { gte: twentyFourHoursAgo } },
       }),
       prisma.gatewayService.count(),
+      prisma.$queryRawUnsafe<{ slug: string; name: string; count: bigint; volume: bigint }[]>(
+        `SELECT s.slug, s.name, COUNT(*)::bigint AS count, COALESCE(SUM(CAST(r.amount AS BIGINT)), 0)::bigint AS volume
+         FROM gw_receipts r JOIN gw_services s ON r."payeeAddress" = s."walletAddress"
+         GROUP BY s.slug, s.name`,
+      ),
+      prisma.$queryRawUnsafe<{ name: string; apiKeyId: string; batches: bigint; grossReceipts: bigint; grossVolume: bigint; netTransfers: bigint; lastSettlement: Date | null }[]>(
+        `SELECT k.name, k.id AS "apiKeyId",
+                COUNT(b.id)::bigint AS batches,
+                COALESCE(SUM(w."receiptCount"), 0)::bigint AS "grossReceipts",
+                COALESCE(SUM(CAST(w."grossVolume" AS BIGINT)), 0)::bigint AS "grossVolume",
+                COALESCE(SUM(w."transferCount"), 0)::bigint AS "netTransfers",
+                MAX(b."confirmedAt") AS "lastSettlement"
+         FROM gw_settlement_batches b
+         JOIN gw_api_keys k ON b."facilitatorId" = k.id
+         LEFT JOIN gw_windows w ON b."windowId" = w."windowId"
+         WHERE b.status IN ('settled', 'webhook_sent')
+         GROUP BY k.name, k.id`,
+      ),
+      prisma.facilitatorWebhook.findMany({
+        where: { active: true },
+        select: { apiKeyId: true, chains: true },
+      }),
     ]);
 
     const totalGrossReceipts = Number(receiptTotals[0]?.count ?? 0n);
@@ -87,6 +112,39 @@ export default async function clearingRoutes(fastify: FastifyInstance) {
     const compression24h = net24h > 0
       ? Math.round((receipts24h / net24h) * 10) / 10
       : 0;
+
+    const chainsById = new Map<string, string[]>();
+    for (const wh of facilitatorWebhooks) {
+      try {
+        const parsed: string[] = JSON.parse(wh.chains);
+        chainsById.set(wh.apiKeyId, parsed);
+      } catch { /* skip */ }
+    }
+
+    const facilitators = (facilitatorStats ?? []).map((f) => {
+      const vol = f.grossVolume.toString();
+      return {
+        name: f.name,
+        grossReceipts: Number(f.grossReceipts),
+        grossVolume: vol,
+        grossVolumeUSDC: Number(f.grossVolume) / 1_000_000,
+        batchesSettled: Number(f.batches),
+        netTransfers: Number(f.netTransfers),
+        chains: chainsById.get(f.apiKeyId) ?? ["solana"],
+        lastSettlement: f.lastSettlement?.toISOString() ?? null,
+      };
+    });
+
+    const services = (serviceStats ?? []).map((s) => {
+      const vol = s.volume.toString();
+      return {
+        slug: s.slug,
+        name: s.name,
+        grossReceipts: Number(s.count),
+        grossVolume: vol,
+        grossVolumeUSDC: Number(s.volume) / 1_000_000,
+      };
+    });
 
     const result = {
       protocol: "stratum-x402",
@@ -106,6 +164,8 @@ export default async function clearingRoutes(fastify: FastifyInstance) {
         netTransfers: net24h,
         compression: compression24h,
       },
+      facilitators,
+      services,
       updatedAt: now.toISOString(),
     };
 

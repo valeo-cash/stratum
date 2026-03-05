@@ -80,11 +80,13 @@ export async function notifyFacilitators(
   if (matching.length === 0) return false;
 
   let anySuccess = false;
+  let firstFacilitatorId: string | null = null;
 
   for (const wh of matching) {
     const ok = await deliverWithRetry(wh.url, wh.secret, payload);
     if (ok) {
       anySuccess = true;
+      if (!firstFacilitatorId) firstFacilitatorId = wh.apiKeyId;
       console.log(`[webhook] Delivered batch ${batchId} to ${wh.url}`);
     } else {
       console.error(`[webhook] All retries failed for ${wh.url} (batch ${batchId})`);
@@ -95,7 +97,11 @@ export async function notifyFacilitators(
     try {
       await prisma.settlementBatch.update({
         where: { id: batchId },
-        data: { status: "webhook_sent", webhookSentAt: new Date() },
+        data: {
+          status: "webhook_sent",
+          webhookSentAt: new Date(),
+          facilitatorId: firstFacilitatorId,
+        },
       });
     } catch (e: any) {
       console.error("[webhook] Failed to update batch status:", e.message);
