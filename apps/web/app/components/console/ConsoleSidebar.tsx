@@ -8,6 +8,7 @@ import {
   Receipt,
   Clock,
   Search,
+  Landmark,
   Menu,
   X,
 } from "lucide-react";
@@ -19,6 +20,7 @@ const navItems = [
   { label: "Receipts", href: "/console/receipts", icon: Receipt },
   { label: "Windows", href: "/console/windows", icon: Clock },
   { label: "Explorer", href: "/console/explorer", icon: Search },
+  { label: "Settlement", href: "/dashboard", icon: Landmark },
 ];
 
 export default function ConsoleSidebar() {

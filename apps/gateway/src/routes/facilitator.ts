@@ -98,6 +98,16 @@ export default async function facilitatorRoutes(fastify: FastifyInstance) {
     return { deleted: true };
   });
 
+  // Pending batches for facilitator polling
+  fastify.get("/v1/settle/pending", { preHandler: settleWriteGuard }, async () => {
+    const batches = await prisma.settlementBatch.findMany({
+      where: { status: { in: ["pending", "webhook_sent"] } },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return { batches: batches.map(parseBatch) };
+  });
+
   // List recent settlement batches
   fastify.get("/v1/settle/batches", { preHandler: settleReadGuard }, async () => {
     const batches = await prisma.settlementBatch.findMany({
