@@ -39,7 +39,7 @@ const valueProps = [
   {
     title: "Multi-chain",
     description:
-      "Support Solana and Base from a single integration. More chains coming.",
+      "Solana today, more chains coming. One integration covers all.",
     icon: "M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9",
   },
 ];
@@ -190,10 +190,10 @@ export default function FacilitatorsPage() {
               </div>
               <div>
                 <p className="text-[#0A0A0A] text-3xl font-medium mb-2">
-                  2 chains
+                  Solana
                 </p>
                 <p className="text-[#6B7280] text-sm">
-                  Solana + Base, more coming
+                  Live now, more chains coming
                 </p>
               </div>
             </div>

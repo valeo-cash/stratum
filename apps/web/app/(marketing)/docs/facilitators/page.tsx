@@ -129,7 +129,7 @@ export default function FacilitatorDocsPage() {
             <li>
               Receive settlement batches when windows close (every 60 seconds)
             </li>
-            <li>Execute the USDC transfers on Solana and/or Base</li>
+            <li>Execute the USDC transfers on Solana</li>
             <li>Confirm execution back to Stratum</li>
           </ol>
 
@@ -161,7 +161,7 @@ X-API-KEY: sk_live_your_key
 
 {
   "url": "https://your-service.com/stratum/settle",
-  "chains": ["solana", "base"],
+  "chains": ["solana"],
   "secret": "whsec_your_webhook_secret"
 }`}</Code>
           <P>
@@ -236,10 +236,6 @@ if (signature !== expected) {
             <li>
               <strong className="text-[#0A0A0A]">Solana:</strong> SPL Token{" "}
               <InlineCode>transferChecked</InlineCode> for each item
-            </li>
-            <li>
-              <strong className="text-[#0A0A0A]">Base:</strong> ERC-20{" "}
-              <InlineCode>USDC.transfer()</InlineCode> for each item
             </li>
           </ul>
           <P>
@@ -339,16 +335,6 @@ X-API-KEY: sk_live_your_key
                   </td>
                   <td className="py-3 text-sm text-[#6B7280]">Devnet</td>
                 </tr>
-                <tr className="border-b border-[#E5E7EB]">
-                  <td className="py-3 pr-4 text-sm text-[#0A0A0A] font-medium">
-                    Base
-                  </td>
-                  <td className="py-3 pr-4 text-sm text-[#6B7280]">USDC</td>
-                  <td className="py-3 pr-4 text-sm font-mono text-[#374151]">
-                    ERC-20 transfer
-                  </td>
-                  <td className="py-3 text-sm text-[#6B7280]">Base Sepolia</td>
-                </tr>
               </tbody>
             </table>
           </div>
@@ -433,7 +419,7 @@ X-API-KEY: sk_live_your_key
           <SectionTitle id="testing">Testing</SectionTitle>
           <ul className="list-disc list-inside text-sm text-[#6B7280] leading-relaxed mb-6 space-y-2 pl-2">
             <li>
-              Use testnet chains (Solana Devnet, Base Sepolia) for integration
+              Use Solana Devnet for integration
               testing
             </li>
             <li>

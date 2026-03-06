@@ -297,17 +297,23 @@ export async function runSettlementCycle(): Promise<SignedWindowHead | null> {
       // Try webhook delivery to facilitators
       let webhookDelivered = false;
       if (dbBatch && netTransfers.length > 0) {
+        const receipts = window.getReceipts();
+        const whHashes = receipts.map((r) => hashReceipt(r));
+        const whTree = new StratumMerkleTree(whHashes);
+
         webhookDelivered = await notifyFacilitators(dbBatch.id, primaryChain, {
-          batchId: dbBatch.id,
-          windowId: window.windowId as string,
+          batch_id: dbBatch.id,
+          window_id: window.windowId as string,
           chain: primaryChain,
+          merkle_root: toHex(whTree.root),
+          anchor_tx: null,
           transfers: netTransfers.map((t) => ({
             from: t.from,
             to: t.to,
             amount: t.amount.toString(),
             chain: t.chain,
           })),
-          totalVolume: nettingResult.net_volume?.toString() ?? "0",
+          total_volume: nettingResult.net_volume?.toString() ?? "0",
         });
       }
 
