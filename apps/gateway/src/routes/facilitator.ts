@@ -66,6 +66,38 @@ export default async function facilitatorRoutes(fastify: FastifyInstance) {
     });
   });
 
+  // List registered webhooks
+  fastify.get("/v1/settle/webhooks", { preHandler: settleWriteGuard }, async () => {
+    const webhooks = await prisma.facilitatorWebhook.findMany({
+      orderBy: { createdAt: "desc" },
+    });
+
+    return {
+      webhooks: webhooks.map((w) => ({
+        id: w.id,
+        url: w.url,
+        chains: safeJsonParse(w.chains, []),
+        secret: w.secret.slice(0, 8) + "...",
+        apiKeyId: w.apiKeyId,
+        active: w.active,
+        createdAt: w.createdAt.toISOString(),
+      })),
+    };
+  });
+
+  // Delete a webhook
+  fastify.delete("/v1/settle/webhook/:id", { preHandler: settleWriteGuard }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+
+    try {
+      await prisma.facilitatorWebhook.delete({ where: { id } });
+    } catch {
+      return reply.status(404).send({ error: "Webhook not found" });
+    }
+
+    return { deleted: true };
+  });
+
   // List recent settlement batches
   fastify.get("/v1/settle/batches", { preHandler: settleReadGuard }, async () => {
     const batches = await prisma.settlementBatch.findMany({
