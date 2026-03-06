@@ -11,6 +11,7 @@ const { StratumFacilitator } = require('@valeostratum/facilitator');
 const facilitator = new StratumFacilitator({
   apiKey: 'sk_live_your_key_here',
   solanaPrivateKey: process.env.SOLANA_PRIVATE_KEY,
+  basePrivateKey: process.env.BASE_PRIVATE_KEY,
 });
 
 facilitator.start();
@@ -39,7 +40,7 @@ const valueProps = [
   {
     title: "Multi-chain",
     description:
-      "Solana today, more chains coming. One integration covers all.",
+      "Solana and Base. One integration covers both chains.",
     icon: "M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9",
   },
 ];
@@ -190,10 +191,10 @@ export default function FacilitatorsPage() {
               </div>
               <div>
                 <p className="text-[#0A0A0A] text-3xl font-medium mb-2">
-                  Solana
+                  Solana + Base
                 </p>
                 <p className="text-[#6B7280] text-sm">
-                  Live now, more chains coming
+                  Live on both chains
                 </p>
               </div>
             </div>

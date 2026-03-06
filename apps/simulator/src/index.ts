@@ -9,6 +9,7 @@ const API_KEY = process.env.STRATUM_API_KEY || "";
 const AGENT_COUNT = parseInt(process.env.AGENT_COUNT || "10", 10);
 const RPS = parseInt(process.env.RPS || "5", 10);
 const DURATION_SEC = parseInt(process.env.DURATION || "60", 10);
+const BASE_CHAIN = process.env.BASE_CHAIN === "true";
 
 const isRemote =
   process.argv.includes("--direct") ||
@@ -126,10 +127,16 @@ async function signPaymentDirect(
   return { signature: toHex(sig), nonce, validUntil };
 }
 
+function pickChain(): "solana" | "base" {
+  if (BASE_CHAIN && Math.random() < 0.3) return "base";
+  return "solana";
+}
+
 async function sendDirectReceipt(
   agent: SimAgent,
   payee: string,
   amount: string,
+  chain: "solana" | "base" = "solana",
 ): Promise<{ status: number; receiptHash?: string; latency: number }> {
   const start = Date.now();
   const { signature, nonce, validUntil } = await signPaymentDirect(
@@ -150,7 +157,7 @@ async function sendDirectReceipt(
       nonce,
       signature,
       validUntil,
-      chain: "solana",
+      chain,
     }),
   });
 
@@ -175,6 +182,7 @@ async function main() {
   console.log(`  Services:   ${SERVICE_DEFS.map((s) => s.slug).join(", ")}`);
   console.log(`  RPS:        ${RPS}`);
   console.log(`  Duration:   ${DURATION_SEC}s`);
+  console.log(`  Chains:     ${BASE_CHAIN ? "solana, base" : "solana"}`);
   console.log();
 
   const agents = await generateAgents(AGENT_COUNT);
@@ -208,7 +216,8 @@ async function main() {
 
     try {
       if (isRemote) {
-        const result = await sendDirectReceipt(simAgent, svc.wallet, priceInMicro);
+        const chain = pickChain();
+        const result = await sendDirectReceipt(simAgent, svc.wallet, priceInMicro, chain);
         if (result.status === 201) {
           successfulRequests++;
           totalLatency += result.latency;

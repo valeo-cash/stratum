@@ -155,7 +155,13 @@ export default async function clearingRoutes(fastify: FastifyInstance) {
       compressionRatio,
       windowsFinalized,
       activeServices,
-      chains: ["solana"],
+      chains: (() => {
+        const c: string[] = [];
+        if (process.env.SOLANA_SETTLEMENT_KEY) c.push("solana");
+        if (process.env.BASE_SETTLEMENT_KEY) c.push("base");
+        if (c.length === 0) c.push("solana");
+        return c;
+      })(),
       anchorProgram: process.env.ANCHOR_PROGRAM_ID ?? null,
       last24h: {
         grossReceipts: receipts24h,
