@@ -53,12 +53,11 @@ export class SolanaSettlement implements ChainSettlement {
       const chunkTransfers: { from: string; to: string; amount: bigint }[] = [];
 
       for (const t of chunk) {
-        const sourceOwner = new PublicKey(t.from);
         const destOwner = new PublicKey(t.to);
 
         const sourceAta = await getAssociatedTokenAddress(
           this.usdcMint,
-          sourceOwner,
+          this.settlementKeypair.publicKey,
         );
         const destAta = await getAssociatedTokenAddress(
           this.usdcMint,
@@ -110,8 +109,9 @@ export class SolanaSettlement implements ChainSettlement {
           });
         }
       } catch (err: any) {
-        console.error("[SolanaSettlement] Transaction failed:", err);
         const errorMsg = err?.message || String(err);
+        console.error("[SolanaSettlement] Transaction failed:", errorMsg);
+        if (err?.logs) console.error("[SolanaSettlement] Logs:", err.logs);
         for (const ct of chunkTransfers) {
           results.push({
             from: ct.from,
