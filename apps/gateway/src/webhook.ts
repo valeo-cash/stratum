@@ -79,17 +79,24 @@ export async function notifyFacilitators(
 
   if (matching.length === 0) return false;
 
+  const results = await Promise.allSettled(
+    matching.map(async (wh) => {
+      const ok = await deliverWithRetry(wh.url, wh.secret, payload, 1);
+      if (ok) {
+        console.log(`[webhook] Delivered batch ${batchId} to ${wh.url}`);
+        return wh.apiKeyId;
+      }
+      console.error(`[webhook] Delivery failed for ${wh.url} (batch ${batchId})`);
+      return null;
+    }),
+  );
+
   let anySuccess = false;
   let firstFacilitatorId: string | null = null;
-
-  for (const wh of matching) {
-    const ok = await deliverWithRetry(wh.url, wh.secret, payload);
-    if (ok) {
+  for (const r of results) {
+    if (r.status === "fulfilled" && r.value) {
       anySuccess = true;
-      if (!firstFacilitatorId) firstFacilitatorId = wh.apiKeyId;
-      console.log(`[webhook] Delivered batch ${batchId} to ${wh.url}`);
-    } else {
-      console.error(`[webhook] All retries failed for ${wh.url} (batch ${batchId})`);
+      if (!firstFacilitatorId) firstFacilitatorId = r.value;
     }
   }
 
