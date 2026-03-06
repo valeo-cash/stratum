@@ -4,24 +4,20 @@ import Footer from "../../components/Footer";
 import ApiKeyForm from "../../components/ApiKeyForm";
 import CodeBlock from "../../components/CodeBlock";
 
-const QUICKSTART_CODE = `npm install @valeostratum/facilitator
-
-const { StratumFacilitator } = require('@valeostratum/facilitator');
-
-const facilitator = new StratumFacilitator({
-  apiKey: 'sk_live_your_key_here',
-  solanaPrivateKey: process.env.SOLANA_PRIVATE_KEY,
-  basePrivateKey: process.env.BASE_PRIVATE_KEY,
-});
-
-facilitator.start();
-// Stratum Facilitator running on port 3200
-// Ready to receive settlement batches`;
+const REGISTER_EXAMPLE = `curl -X POST https://gateway.stratumx402.com/admin/services \\
+  -H "X-API-KEY: sk_live_your_key" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "slug": "my-api",
+    "name": "My API",
+    "walletAddress": "your_solana_wallet_address",
+    "pricePerRequest": 5000
+  }'`;
 
 export const metadata: Metadata = {
-  title: "Facilitators — Valeo Stratum",
+  title: "Service Providers — Valeo Stratum",
   description:
-    "Process 50 settlements instead of 500,000. Stratum compresses AI agent payments into minimal batch instructions.",
+    "Plug into Stratum. Settlement happens automatically. USDC arrives in your wallet every 60 seconds.",
 };
 
 const valueProps = [
@@ -32,15 +28,15 @@ const valueProps = [
     icon: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6",
   },
   {
-    title: "Real-time batches",
+    title: "Automatic settlement",
     description:
-      "Settlement windows close every 60 seconds. Receive structured batch instructions via webhook.",
+      "Settlement windows close every 60 seconds. USDC arrives in your wallet automatically.",
     icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z",
   },
   {
-    title: "Multi-chain",
+    title: "Solana + Base",
     description:
-      "Solana and Base. One integration covers both chains.",
+      "Automatic USDC settlement on both chains. One registration covers everything.",
     icon: "M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9",
   },
 ];
@@ -48,28 +44,32 @@ const valueProps = [
 const steps = [
   {
     n: 1,
-    title: "Agents make payments",
+    title: "Get your API key",
     description:
-      "AI agents call APIs through Stratum. Each call generates a cryptographic receipt.",
+      "Instant. No approval required. Generate one right here on this page.",
   },
   {
     n: 2,
-    title: "Stratum batches and nets",
+    title: "Register your services",
     description:
-      "Receipts are collected into 60-second windows. Multilateral netting compresses the transfer set.",
+      "Tell Stratum which APIs you're monetizing and your wallet address. One API call.",
   },
   {
     n: 3,
-    title: "You receive a webhook",
+    title: "Done — USDC arrives every 60 seconds",
     description:
-      "A single POST with the net transfers, Merkle root, and on-chain anchor hash.",
+      "Stratum collects agent payments, nets them, and settles USDC directly to your service wallets.",
   },
-  {
-    n: 4,
-    title: "Execute and confirm",
-    description:
-      "Execute the USDC transfers on-chain and confirm back to Stratum with transaction hashes.",
-  },
+];
+
+const automatedFeatures = [
+  "Collects Ed25519-signed payment receipts from AI agents",
+  "Batches into 60-second settlement windows",
+  "Computes multilateral netting (1,000 payments → ~10 transfers)",
+  "Builds Merkle proof tree (RFC 6962)",
+  "Anchors Merkle root on Solana mainnet",
+  "Executes USDC transfers to your service wallets",
+  "Supports Solana and Base",
 ];
 
 export default function FacilitatorsPage() {
@@ -80,30 +80,30 @@ export default function FacilitatorsPage() {
         <section className="pt-24 pb-20 px-6 lg:px-16">
           <div className="max-w-3xl">
             <p className="text-[11px] font-mono text-[#3B82F6] uppercase tracking-[0.2em] mb-6">
-              For Facilitators
+              For Service Providers
             </p>
             <h1 className="text-[#0A0A0A] text-4xl lg:text-5xl font-medium leading-tight mb-6">
-              Process 50 settlements
+              Plug into Stratum.
               <br />
-              instead of 500,000
+              Settlement happens automatically.
             </h1>
             <p className="text-[#6B7280] text-lg leading-relaxed max-w-2xl mb-10">
-              Stratum compresses millions of AI agent payments into minimal
-              batch settlement instructions. Less infrastructure. Same revenue.
+              Stratum clears, nets, and settles USDC on Solana and Base.
+              No webhooks. No servers. No code.
             </p>
             <div className="flex flex-wrap gap-3">
-              <Link
-                href="/docs/facilitators"
+              <a
+                href="#get-started"
                 className="inline-flex items-center justify-center rounded-none px-6 py-3 text-sm font-medium bg-[#003FFF] text-white hover:bg-[#0033CC] transition-colors"
               >
-                Read the integration guide →
-              </Link>
-              <a
-                href="mailto:valeobank@gmail.com"
+                Get your API key
+              </a>
+              <Link
+                href="/docs/facilitators"
                 className="inline-flex items-center justify-center rounded-none px-6 py-3 text-sm font-medium text-[#6B7280] border border-[#E5E7EB] hover:text-[#0A0A0A] hover:border-[#D1D5DB] transition-colors"
               >
-                Contact us
-              </a>
+                Read the docs
+              </Link>
             </div>
           </div>
         </section>
@@ -202,7 +202,7 @@ export default function FacilitatorsPage() {
         </section>
 
         {/* Get Your API Key */}
-        <section className="py-20 px-6 lg:px-16 border-t border-[#F3F4F6]">
+        <section id="get-started" className="py-20 px-6 lg:px-16 border-t border-[#F3F4F6] scroll-mt-16">
           <div className="max-w-3xl">
             <p className="text-[11px] font-mono text-[#9CA3AF] uppercase tracking-[0.2em] mb-10">
               Get started
@@ -218,34 +218,45 @@ export default function FacilitatorsPage() {
           </div>
         </section>
 
-        {/* Integrate in 10 Lines */}
+        {/* Register a Service */}
         <section className="py-20 px-6 lg:px-16 border-t border-[#F3F4F6] bg-[#FAFAFA]">
           <div className="max-w-3xl">
             <p className="text-[11px] font-mono text-[#9CA3AF] uppercase tracking-[0.2em] mb-10">
-              Integration
+              Registration
             </p>
             <h2 className="text-[#0A0A0A] text-2xl font-medium mb-3">
-              Integrate in 4 lines
+              Register a service
             </h2>
             <p className="text-[#6B7280] text-sm leading-relaxed mb-8">
-              Install the SDK, paste the snippet, and deploy. Settlement batches
-              arrive automatically every 60 seconds.
+              One API call. Provide your service name, wallet address, and price per request.
             </p>
-            <CodeBlock code={QUICKSTART_CODE} />
-            <div className="mt-10 space-y-6">
-              {[
-                { n: 1, text: "Get your API key above" },
-                { n: 2, text: "npm install and paste the code" },
-                { n: 3, text: "Deploy — settlement batches arrive every 60 seconds" },
-              ].map((s) => (
-                <div key={s.n} className="flex gap-4 items-start">
-                  <span className="inline-flex items-center justify-center w-7 h-7 rounded-none bg-[#003FFF] text-white text-xs font-medium shrink-0 mt-0.5">
-                    {s.n}
+            <CodeBlock code={REGISTER_EXAMPLE} />
+            <p className="text-[#6B7280] text-sm leading-relaxed mt-6">
+              That&apos;s it. Stratum handles clearing, netting, Merkle proofs,
+              and USDC settlement automatically.
+            </p>
+          </div>
+        </section>
+
+        {/* What Stratum Does Automatically */}
+        <section className="py-20 px-6 lg:px-16 border-t border-[#F3F4F6]">
+          <div className="max-w-3xl">
+            <p className="text-[11px] font-mono text-[#9CA3AF] uppercase tracking-[0.2em] mb-10">
+              Under the hood
+            </p>
+            <h2 className="text-[#0A0A0A] text-2xl font-medium mb-6">
+              What Stratum does automatically
+            </h2>
+            <ul className="space-y-4">
+              {automatedFeatures.map((feature) => (
+                <li key={feature} className="flex items-start gap-3">
+                  <span className="mt-1.5 w-1.5 h-1.5 bg-[#3B82F6] rounded-full shrink-0" />
+                  <span className="text-[#6B7280] text-sm leading-relaxed">
+                    {feature}
                   </span>
-                  <p className="text-[#0A0A0A] text-sm">{s.text}</p>
-                </div>
+                </li>
               ))}
-            </div>
+            </ul>
           </div>
         </section>
 
@@ -253,26 +264,60 @@ export default function FacilitatorsPage() {
         <section className="py-20 px-6 lg:px-16 border-t border-[#F3F4F6]">
           <div className="max-w-3xl">
             <h2 className="text-[#0A0A0A] text-2xl font-medium mb-4">
-              Ready to integrate?
+              Ready to get started?
             </h2>
             <p className="text-[#6B7280] text-sm leading-relaxed mb-8">
-              The integration takes less than a day. Register a webhook, handle
-              the settlement payloads, and confirm execution.
+              Register your service and USDC arrives every 60 seconds. No
+              servers to run, no webhooks to manage, no code to deploy.
             </p>
             <div className="flex flex-wrap gap-3">
-              <Link
-                href="/docs/facilitators"
+              <a
+                href="#get-started"
                 className="inline-flex items-center justify-center rounded-none px-6 py-3 text-sm font-medium bg-[#003FFF] text-white hover:bg-[#0033CC] transition-colors"
               >
-                Read the integration guide →
-              </Link>
-              <a
-                href="mailto:valeobank@gmail.com"
+                Get your API key
+              </a>
+              <Link
+                href="/docs/facilitators"
                 className="inline-flex items-center justify-center rounded-none px-6 py-3 text-sm font-medium text-[#6B7280] border border-[#E5E7EB] hover:text-[#0A0A0A] hover:border-[#D1D5DB] transition-colors"
               >
-                Contact us
-              </a>
+                Read the docs
+              </Link>
             </div>
+          </div>
+        </section>
+
+        {/* Advanced */}
+        <section className="py-16 px-6 lg:px-16 border-t border-[#F3F4F6] bg-[#FAFAFA]">
+          <div className="max-w-3xl">
+            <details>
+              <summary className="text-[#9CA3AF] text-sm cursor-pointer hover:text-[#6B7280] transition-colors">
+                Advanced: Custom settlement flows
+              </summary>
+              <div className="mt-6 space-y-4">
+                <p className="text-[#6B7280] text-sm leading-relaxed">
+                  For custom settlement workflows, Stratum also supports:
+                </p>
+                <ul className="list-disc list-inside text-sm text-[#6B7280] leading-relaxed space-y-2 pl-2">
+                  <li>
+                    <strong className="text-[#0A0A0A]">Webhook API</strong> — register a webhook to receive settlement batches and execute transfers yourself
+                  </li>
+                  <li>
+                    <strong className="text-[#0A0A0A]">Settlement Dashboard</strong> — settle batches manually using your Phantom wallet at <code className="text-[#3B82F6] bg-[#F3F4F6] px-1">/dashboard</code>
+                  </li>
+                  <li>
+                    <strong className="text-[#0A0A0A]">Polling API</strong> — poll <code className="text-[#3B82F6] bg-[#F3F4F6] px-1">GET /v1/settle/pending</code> for pending batches
+                  </li>
+                </ul>
+                <p className="text-[#6B7280] text-sm leading-relaxed">
+                  See the{" "}
+                  <Link href="/docs/facilitators#advanced" className="text-[#3B82F6] hover:underline">
+                    full documentation
+                  </Link>{" "}
+                  for details.
+                </p>
+              </div>
+            </details>
           </div>
         </section>
       </main>

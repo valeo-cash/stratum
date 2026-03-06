@@ -4,9 +4,9 @@ import Footer from "../../../components/Footer";
 import FacilitatorDocsSidebar from "./FacilitatorDocsSidebar";
 
 export const metadata: Metadata = {
-  title: "Facilitator Integration Guide — Valeo Stratum",
+  title: "Integration Guide — Valeo Stratum",
   description:
-    "Technical guide for facilitators integrating with Valeo Stratum to process batched AI agent settlements.",
+    "Register your service and receive automatic USDC settlement every 60 seconds. No webhooks, no servers, no code.",
 };
 
 function SectionTitle({
@@ -72,7 +72,9 @@ function EndpointRow({
       ? "text-[#10B981]"
       : method === "POST"
         ? "text-[#3B82F6]"
-        : "text-[#D97706]";
+        : method === "DELETE"
+          ? "text-[#EF4444]"
+          : "text-[#D97706]";
   return (
     <tr className="border-b border-[#E5E7EB]">
       <td className={`py-3 pr-4 font-mono text-sm font-medium ${color}`}>
@@ -109,36 +111,34 @@ export default function FacilitatorDocsPage() {
           </div>
 
           <h1 className="text-[#0A0A0A] text-3xl font-medium mb-2">
-            Facilitator Integration Guide
+            Integration Guide
           </h1>
           <p className="text-[#9CA3AF] text-sm font-mono mb-12">
-            v1.0 — Settlement API
+            v2.0 — Automatic Settlement
           </p>
 
           {/* Overview */}
           <SectionTitle id="overview">Overview</SectionTitle>
           <P>
-            Stratum is a clearing layer that sits between AI agents and API
-            providers. Instead of processing millions of individual payments,
-            facilitators receive batched settlement instructions — typically 50
-            batch settlements instead of 500,000 individual ones.
+            Stratum is a clearing and settlement layer for AI agent payments.
+            It automatically collects payments, computes multilateral netting,
+            and settles USDC to your wallet. No webhooks. No servers. No code.
           </P>
-          <P>As a facilitator, you:</P>
+          <P>To start receiving USDC, you:</P>
           <ol className="list-decimal list-inside text-sm text-[#6B7280] leading-relaxed mb-6 space-y-2 pl-2">
-            <li>Register a webhook endpoint with Stratum</li>
-            <li>
-              Receive settlement batches when windows close (every 60 seconds)
-            </li>
-            <li>Execute the USDC transfers on Solana or Base</li>
-            <li>Confirm execution back to Stratum</li>
+            <li>Get an API key</li>
+            <li>Register your service with a wallet address</li>
+            <li>USDC arrives every 60 seconds</li>
           </ol>
 
           {/* Authentication */}
           <SectionTitle id="authentication">Authentication</SectionTitle>
           <P>
-            Request an API key from Stratum with the{" "}
-            <InlineCode>facilitator</InlineCode> role. Include it in all
-            requests using either header format:
+            Get an API key at{" "}
+            <Link href="/facilitators" className="text-[#3B82F6] hover:underline">
+              /facilitators
+            </Link>
+            . Include it in all requests using either header format:
           </P>
           <Code>{`X-API-KEY: sk_live_your_key
 
@@ -152,119 +152,90 @@ Authorization: Bearer sk_live_your_key`}</Code>
           <SubTitle>
             <span className="flex items-center">
               <StepNumber n={1} />
-              Register your webhook
+              Get your API key
             </span>
           </SubTitle>
-          <Code>{`POST https://gateway.stratum.valeo.com/v1/settle/webhook
-Content-Type: application/json
-X-API-KEY: sk_live_your_key
-
-{
-  "url": "https://your-service.com/stratum/settle",
-  "chains": ["solana", "base"],
-  "secret": "whsec_your_webhook_secret"
-}`}</Code>
           <P>
-            The <InlineCode>secret</InlineCode> is used to sign webhook payloads
-            via HMAC-SHA256 so you can verify authenticity.
+            Generate an API key instantly at{" "}
+            <Link href="/facilitators" className="text-[#3B82F6] hover:underline">
+              stratumx402.com/facilitators
+            </Link>
+            . No approval required.
           </P>
 
           <SubTitle>
             <span className="flex items-center">
               <StepNumber n={2} />
-              Receive settlement batches
+              Register your service
             </span>
           </SubTitle>
           <P>
-            When a settlement window closes, Stratum POSTs a batch payload to
-            your webhook URL:
+            Tell Stratum about your API and where to send USDC:
           </P>
-          <Code>{`{
-  "batchId": "batch-abc123",
-  "windowId": "win-mm8jlizk-hrhj-1",
-  "chain": "solana",
-  "transfers": [
-    {
-      "from": "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU",
-      "to": "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
-      "amount": "470000",
-      "chain": "solana"
-    },
-    {
-      "from": "3kP9...",
-      "to": "9WzD...",
-      "amount": "120000",
-      "chain": "solana"
-    }
-  ],
-  "totalVolume": "1250000"
+          <Code>{`POST https://gateway.stratumx402.com/admin/services
+Content-Type: application/json
+X-API-KEY: sk_live_your_key
+
+{
+  "slug": "my-api",
+  "name": "My API",
+  "walletAddress": "your_solana_wallet_address",
+  "pricePerRequest": 5000
 }`}</Code>
           <P>
-            The <InlineCode>X-Stratum-Signature</InlineCode> header contains the
-            HMAC-SHA256 signature for verification.
+            The <InlineCode>pricePerRequest</InlineCode> is in USDC base units
+            (6 decimals). <InlineCode>5000</InlineCode> = $0.005 USDC per request.
           </P>
 
           <SubTitle>
             <span className="flex items-center">
               <StepNumber n={3} />
-              Verify the webhook signature
+              Agents start paying
             </span>
           </SubTitle>
-          <Code>{`const crypto = require('crypto');
-
-const signature = req.headers['x-stratum-signature'];
-const body = JSON.stringify(req.body);
-const expected = crypto
-  .createHmac('sha256', webhookSecret)
-  .update(body)
-  .digest('hex');
-
-if (signature !== expected) {
-  throw new Error('Invalid webhook signature');
-}`}</Code>
+          <P>
+            AI agents call your API through Stratum. Each call generates a
+            cryptographic receipt. Stratum collects these receipts into
+            60-second settlement windows.
+          </P>
 
           <SubTitle>
             <span className="flex items-center">
               <StepNumber n={4} />
-              Execute transfers
+              USDC arrives in your wallet
             </span>
           </SubTitle>
           <P>
-            For each transfer in the batch, execute the on-chain USDC transfer:
-          </P>
-          <ul className="list-disc list-inside text-sm text-[#6B7280] leading-relaxed mb-6 space-y-2 pl-2">
-            <li>
-              <strong className="text-[#0A0A0A]">Solana:</strong> SPL Token{" "}
-              <InlineCode>transferChecked</InlineCode> for each item
-            </li>
-            <li>
-              <strong className="text-[#0A0A0A]">Base:</strong> ERC-20{" "}
-              <InlineCode>transfer</InlineCode> for each item
-            </li>
-          </ul>
-          <P>
-            Amounts are in USDC base units (6 decimals).{" "}
-            <InlineCode>470000</InlineCode> = $0.47 USDC.
+            Every 60 seconds, Stratum computes multilateral netting across all
+            payments, anchors a Merkle root on-chain, and executes USDC
+            transfers directly to your registered wallet. No action required
+            from you.
           </P>
 
-          <SubTitle>
-            <span className="flex items-center">
-              <StepNumber n={5} />
-              Confirm execution
-            </span>
-          </SubTitle>
+          {/* How It Works */}
+          <SectionTitle id="how-it-works">How It Works</SectionTitle>
           <P>
-            After executing all transfers, confirm back to Stratum with the
-            transaction hashes:
+            When a settlement window closes, Stratum automatically:
           </P>
-          <Code>{`POST https://gateway.stratum.valeo.com/v1/settle/batches/{batch_id}/confirm
-Content-Type: application/json
-X-API-KEY: sk_live_your_key
-
-{
-  "txHashes": ["5xKr3...", "9mWq7..."],
-  "chain": "solana"
-}`}</Code>
+          <ol className="list-decimal list-inside text-sm text-[#6B7280] leading-relaxed mb-6 space-y-2 pl-2">
+            <li>Collects all Ed25519-signed payment receipts from the window</li>
+            <li>Computes multilateral netting — 1,000 payments become ~10 transfers</li>
+            <li>Builds a Merkle proof tree (RFC 6962) over all receipts</li>
+            <li>Anchors the Merkle root on Solana mainnet</li>
+            <li>Executes USDC transfers to service wallets on Solana or Base</li>
+          </ol>
+          <P>
+            Every receipt, Merkle proof, and on-chain anchor is publicly
+            verifiable. View live data at{" "}
+            <a
+              href="https://gateway.stratumx402.com/v1/analytics"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#3B82F6] hover:underline"
+            >
+              gateway.stratumx402.com/v1/analytics
+            </a>
+          </P>
 
           {/* API Reference */}
           <SectionTitle id="api">API Reference</SectionTitle>
@@ -286,8 +257,13 @@ X-API-KEY: sk_live_your_key
               <tbody>
                 <EndpointRow
                   method="POST"
-                  path="/v1/settle/webhook"
-                  desc="Register a webhook for settlement notifications"
+                  path="/admin/services"
+                  desc="Register a service (slug, name, wallet, price)"
+                />
+                <EndpointRow
+                  method="GET"
+                  path="/v1/analytics"
+                  desc="Public analytics — volume, netting, chains"
                 />
                 <EndpointRow
                   method="GET"
@@ -300,6 +276,11 @@ X-API-KEY: sk_live_your_key
                   desc="Get details of a specific batch"
                 />
                 <EndpointRow
+                  method="GET"
+                  path="/v1/settle/pending"
+                  desc="List unsettled pending batches"
+                />
+                <EndpointRow
                   method="POST"
                   path="/v1/settle/batches/:id/confirm"
                   desc="Confirm settlement execution with tx hashes"
@@ -308,8 +289,10 @@ X-API-KEY: sk_live_your_key
             </table>
           </div>
 
-          {/* Supported Chains */}
-          <SectionTitle id="chains">Supported Chains</SectionTitle>
+          {/* Configuration */}
+          <SectionTitle id="config">Configuration</SectionTitle>
+
+          <SubTitle>Supported Chains</SubTitle>
           <div className="overflow-x-auto mb-8">
             <table className="w-full text-left">
               <thead>
@@ -353,67 +336,28 @@ X-API-KEY: sk_live_your_key
             </table>
           </div>
 
-          {/* Batch Lifecycle */}
-          <SectionTitle id="lifecycle">Batch Lifecycle</SectionTitle>
-          <P>Settlement batches progress through the following states:</P>
+          <SubTitle>Settlement Parameters</SubTitle>
           <div className="rounded-none border border-[#E5E7EB] bg-[#FAFAFA] p-6 mb-6 space-y-3">
-            <div className="flex items-center gap-2 text-sm font-mono">
-              <span className="px-2 py-1 bg-[#FEF3C7] text-[#92400E] text-xs">
-                pending
-              </span>
-              <span className="text-[#9CA3AF]">→</span>
-              <span className="px-2 py-1 bg-[#DBEAFE] text-[#1E40AF] text-xs">
-                webhook_sent
-              </span>
-              <span className="text-[#9CA3AF]">→</span>
-              <span className="px-2 py-1 bg-[#D1FAE5] text-[#065F46] text-xs">
-                settled
-              </span>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-[#6B7280]">Settlement frequency</span>
+              <span className="font-mono text-[#0A0A0A]">Every 60 seconds</span>
             </div>
-            <div className="flex items-center gap-2 text-sm font-mono">
-              <span className="px-2 py-1 bg-[#FEF3C7] text-[#92400E] text-xs">
-                pending
-              </span>
-              <span className="text-[#9CA3AF]">→</span>
-              <span className="px-2 py-1 bg-[#DBEAFE] text-[#1E40AF] text-xs">
-                webhook_sent
-              </span>
-              <span className="text-[#9CA3AF]">→</span>
-              <span className="px-2 py-1 bg-[#FEE2E2] text-[#991B1B] text-xs">
-                failed
-              </span>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-[#6B7280]">Fee</span>
+              <span className="font-mono text-[#0A0A0A]">0.1% of netted volume</span>
             </div>
-            <div className="flex items-center gap-2 text-sm font-mono">
-              <span className="px-2 py-1 bg-[#FEF3C7] text-[#92400E] text-xs">
-                pending
-              </span>
-              <span className="text-[#9CA3AF]">→</span>
-              <span className="px-2 py-1 bg-[#D1FAE5] text-[#065F46] text-xs">
-                settled
-              </span>
-              <span className="text-[#9CA3AF] text-xs ml-2">
-                (direct settlement, no webhook)
-              </span>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-[#6B7280]">Public analytics</span>
+              <a
+                href="https://gateway.stratumx402.com/v1/analytics"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-mono text-[#3B82F6] hover:underline"
+              >
+                /v1/analytics
+              </a>
             </div>
           </div>
-
-          {/* Error Handling */}
-          <SectionTitle id="errors">Error Handling</SectionTitle>
-          <ul className="list-disc list-inside text-sm text-[#6B7280] leading-relaxed mb-6 space-y-2 pl-2">
-            <li>
-              Webhook delivery retries 3 times with exponential backoff (1s, 5s,
-              25s)
-            </li>
-            <li>
-              If all retries fail, the batch stays{" "}
-              <InlineCode>pending</InlineCode> and can be retrieved via{" "}
-              <InlineCode>GET /v1/settle/batches</InlineCode>
-            </li>
-            <li>
-              Failed transfers should be reported via the confirm endpoint with
-              error details
-            </li>
-          </ul>
 
           {/* Rate Limits */}
           <SectionTitle id="limits">Rate Limits</SectionTitle>
@@ -433,8 +377,7 @@ X-API-KEY: sk_live_your_key
           <SectionTitle id="testing">Testing</SectionTitle>
           <ul className="list-disc list-inside text-sm text-[#6B7280] leading-relaxed mb-6 space-y-2 pl-2">
             <li>
-              Use Solana Devnet or Base Sepolia for integration
-              testing
+              Use Solana Devnet or Base Sepolia for integration testing
             </li>
             <li>
               Request a test API key with{" "}
@@ -446,6 +389,64 @@ X-API-KEY: sk_live_your_key
               <InlineCode>pnpm --filter @valeo/simulator start</InlineCode>
             </li>
           </ul>
+
+          {/* Advanced */}
+          <SectionTitle id="advanced">Advanced: Custom Settlement Flows</SectionTitle>
+          <P>
+            For most users, automatic settlement is all you need. For custom
+            workflows, Stratum also supports manual settlement flows:
+          </P>
+
+          <details className="rounded-none border border-[#E5E7EB] bg-[#FAFAFA] p-6 mb-6">
+            <summary className="text-sm text-[#0A0A0A] font-medium cursor-pointer">
+              Webhook-based settlement
+            </summary>
+            <div className="mt-4 space-y-4">
+              <P>
+                Register a webhook to receive settlement batches and execute
+                transfers yourself:
+              </P>
+              <Code>{`POST /v1/settle/webhook
+{
+  "url": "https://your-service.com/stratum/settle",
+  "chains": ["solana", "base"],
+  "secret": "whsec_your_webhook_secret"
+}`}</Code>
+              <P>
+                Stratum signs webhook payloads via HMAC-SHA256. Verify with the{" "}
+                <InlineCode>X-Stratum-Signature</InlineCode> header.
+              </P>
+            </div>
+          </details>
+
+          <details className="rounded-none border border-[#E5E7EB] bg-[#FAFAFA] p-6 mb-6">
+            <summary className="text-sm text-[#0A0A0A] font-medium cursor-pointer">
+              Dashboard settlement (Phantom wallet)
+            </summary>
+            <div className="mt-4">
+              <P>
+                Use the{" "}
+                <Link href="/dashboard" className="text-[#3B82F6] hover:underline">
+                  Settlement Dashboard
+                </Link>{" "}
+                to settle batches manually using your Phantom wallet directly
+                in the browser. No private key sharing required.
+              </P>
+            </div>
+          </details>
+
+          <details className="rounded-none border border-[#E5E7EB] bg-[#FAFAFA] p-6 mb-6">
+            <summary className="text-sm text-[#0A0A0A] font-medium cursor-pointer">
+              Polling API
+            </summary>
+            <div className="mt-4">
+              <P>
+                Poll <InlineCode>GET /v1/settle/pending</InlineCode> for
+                unsettled batches. After executing transfers, confirm with{" "}
+                <InlineCode>POST /v1/settle/batches/:id/confirm</InlineCode>.
+              </P>
+            </div>
+          </details>
 
           <div className="mt-16 pt-8 border-t border-[#E5E7EB]">
             <P>

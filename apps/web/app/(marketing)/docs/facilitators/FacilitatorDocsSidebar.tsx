@@ -6,12 +6,12 @@ const sections = [
   { id: "overview", label: "Overview" },
   { id: "authentication", label: "Authentication" },
   { id: "quickstart", label: "Quick Start" },
+  { id: "how-it-works", label: "How It Works" },
   { id: "api", label: "API Reference" },
-  { id: "chains", label: "Supported Chains" },
-  { id: "lifecycle", label: "Batch Lifecycle" },
-  { id: "errors", label: "Error Handling" },
+  { id: "config", label: "Configuration" },
   { id: "limits", label: "Rate Limits" },
   { id: "testing", label: "Testing" },
+  { id: "advanced", label: "Advanced" },
 ];
 
 export default function FacilitatorDocsSidebar() {
@@ -41,7 +41,7 @@ export default function FacilitatorDocsSidebar() {
       >
         <nav className="p-6 space-y-1">
           <p className="text-[11px] font-mono text-[#9CA3AF] uppercase tracking-[0.15em] mb-5">
-            Facilitator Guide
+            Integration Guide
           </p>
           {sections.map((s) => (
             <a
