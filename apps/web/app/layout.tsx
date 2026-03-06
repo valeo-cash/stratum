@@ -1,15 +1,10 @@
 import type { Metadata } from "next";
-import localFont from "next/font/local";
+import { DM_Sans } from "next/font/google";
 import "./globals.css";
 
-const gcNorth = localFont({
-  src: [
-    { path: "./fonts/GCNorthSans-ExtraLight.ttf", weight: "200" },
-    { path: "./fonts/GCNorthSans-Light.ttf", weight: "300" },
-    { path: "./fonts/GCNorthSans-Medium.ttf", weight: "500" },
-    { path: "./fonts/GCNorthSans-SemiBold.ttf", weight: "600" },
-    { path: "./fonts/GCNorthSans-Bold.ttf", weight: "700" },
-  ],
+const dmSans = DM_Sans({
+  subsets: ["latin"],
+  weight: ["200", "300", "400", "500", "600", "700"],
   display: "swap",
   variable: "--font-gcnorth",
 });
@@ -29,7 +24,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={gcNorth.variable}>
+    <html lang="en" className={dmSans.variable}>
       <body className="bg-white text-[#0A0A0A] font-sans font-light antialiased">
         {children}
       </body>
