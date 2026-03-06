@@ -504,7 +504,10 @@ export async function runSettlementCycle(): Promise<SignedWindowHead | null> {
         anchorTxHash: entry?.anchorTxHash ?? null,
         headSignature: toHex(signed.signature),
         nettingData: JSON.stringify({
-          transfers: netting.transfers,
+          transfers: netting.transfers.map((t: any) => ({
+            ...t,
+            amount: t.amount.toString(),
+          })),
           net_volume: netting.net_volume.toString(),
           compression_ratio: netting.compression_ratio,
           transfer_count: netting.transfer_count,

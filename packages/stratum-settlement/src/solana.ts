@@ -8,8 +8,10 @@ import {
 import {
   getAssociatedTokenAddress,
   createTransferCheckedInstruction,
+  createAssociatedTokenAccountIdempotentInstruction,
   getAccount,
   TOKEN_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 import type {
   ChainSettlement,
@@ -63,6 +65,17 @@ export class SolanaSettlement implements ChainSettlement {
           destOwner,
         );
 
+        tx.add(
+          createAssociatedTokenAccountIdempotentInstruction(
+            this.settlementKeypair.publicKey,
+            destAta,
+            destOwner,
+            this.usdcMint,
+            TOKEN_PROGRAM_ID,
+            ASSOCIATED_TOKEN_PROGRAM_ID,
+          ),
+        );
+
         const ix = createTransferCheckedInstruction(
           sourceAta,
           this.usdcMint,
@@ -97,6 +110,7 @@ export class SolanaSettlement implements ChainSettlement {
           });
         }
       } catch (err: any) {
+        console.error("[SolanaSettlement] Transaction failed:", err);
         const errorMsg = err?.message || String(err);
         for (const ct of chunkTransfers) {
           results.push({
