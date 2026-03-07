@@ -23,35 +23,36 @@ export default function HeroSection() {
             lineHeight: 1.05,
           }}
         >
-          The Settlement Layer
+          The Clearing Layer Between
           <br />
-          for the Agent Economy
+          Agents and Facilitators
         </h1>
 
         <p
-          className="fade-in-subtitle mt-8 max-w-xl"
+          className="fade-in-subtitle mt-8 max-w-2xl"
           style={{
             fontSize: "clamp(1rem, 1.5vw, 1.25rem)",
             color: "#6B7280",
             lineHeight: 1.7,
           }}
         >
-          Aggregate millions of agent payments into deterministic net settlement.
-          No new chain. No protocol changes. One endpoint.
+          Agents generate millions of payments. Facilitators settle them on-chain.
+          Stratum sits in the middle &mdash; compressing 10,000 payment instructions
+          into 50 net transfers before they ever hit the chain.
         </p>
 
         <div className="fade-in-cta flex flex-col sm:flex-row items-start gap-3 mt-10">
           <a
-            href="#integration"
+            href="/facilitators"
             className="inline-flex items-center justify-center rounded-none px-6 py-3 text-sm font-medium bg-[#003FFF] text-white hover:bg-[#0033CC] transition-colors"
           >
-            Register API
+            I&rsquo;m a facilitator
           </a>
           <a
-            href="/docs#overview"
+            href="/docs/facilitators"
             className="inline-flex items-center justify-center rounded-none px-6 py-3 text-sm font-medium border border-[#E5E7EB] text-[#6B7280] hover:text-[#0A0A0A] hover:border-[#D1D5DB] transition-colors"
           >
-            Read the Spec
+            I&rsquo;m a seller
           </a>
         </div>
       </div>

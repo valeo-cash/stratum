@@ -1,12 +1,12 @@
 import HeroSection from "../components/HeroSection";
 import StatsRow from "../components/StatsRow";
-import ProductCards from "../components/ProductCards";
-import ProblemSection from "../components/ProblemSection";
-import HowItWorksSection from "../components/HowItWorksSection";
-import ComparisonSection from "../components/ComparisonSection";
+import WhereStratumFits from "../components/WhereStratumFits";
+import WhoBenefits from "../components/WhoBenefits";
+import WhyClearinghouse from "../components/WhyClearinghouse";
 import AnalogySection from "../components/AnalogySection";
-import IntegrationSection from "../components/IntegrationSection";
+import HowItWorksSection from "../components/HowItWorksSection";
 import ArchitectureSection from "../components/ArchitectureSection";
+import IntegrationSection from "../components/IntegrationSection";
 import FacilitatorsSection from "../components/FacilitatorsSection";
 import TrustSection from "../components/TrustSection";
 import Footer from "../components/Footer";
@@ -40,13 +40,13 @@ export default async function Home() {
       <main>
         <HeroSection />
         <StatsRow liveStats={liveStats} />
-        <ProductCards />
-        <ProblemSection />
-        <HowItWorksSection />
-        <ComparisonSection />
+        <WhereStratumFits />
+        <WhoBenefits />
+        <WhyClearinghouse />
         <AnalogySection />
-        <IntegrationSection />
+        <HowItWorksSection />
         <ArchitectureSection />
+        <IntegrationSection />
         <FacilitatorsSection />
         <TrustSection />
       </main>

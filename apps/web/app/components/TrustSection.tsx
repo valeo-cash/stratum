@@ -13,8 +13,8 @@ const levels = [
   },
   {
     title: "On-Chain",
-    description: "Settlement instructions are executed by the facilitator. Merkle roots are anchored on Solana. Finality is on-chain.",
-    items: ["USDC transfers via facilitator", "Merkle root anchoring", "On-chain audit trail"],
+    description: "Stratum settles USDC automatically to service wallets. Facilitators can also execute settlements themselves using the webhook API or SDK for custom flows.",
+    items: ["Automatic USDC settlement on Solana and Base", "Facilitator webhook API for custom settlement", "On-chain Merkle root audit trail"],
   },
 ];
 
