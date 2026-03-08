@@ -18,6 +18,7 @@ import { loadServicesFromDb } from "./registry";
 import { retryPendingWindows, getPendingRetryCount } from "./retry-queue";
 import { prisma } from "./db";
 import { Connection } from "@solana/web3.js";
+import { getTeeStatus } from "./tee";
 
 const server = Fastify({ logger: true });
 
@@ -55,6 +56,8 @@ server.get("/health", async () => {
     dbStatus = "disconnected";
   }
 
+  const teeStatus = await getTeeStatus();
+
   return {
     status: "ok",
     uptime: Math.floor(process.uptime()),
@@ -64,6 +67,8 @@ server.get("/health", async () => {
     pendingRetries: getPendingRetryCount(),
     solana: solanaStatus,
     database: dbStatus,
+    tee: teeStatus.enabled,
+    teeProvider: teeStatus.provider,
   };
 });
 

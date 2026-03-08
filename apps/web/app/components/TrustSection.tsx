@@ -2,9 +2,9 @@ import FadeIn from "./FadeIn";
 
 const levels = [
   {
-    title: "Trusted",
-    description: "Stratum is trusted to clear correctly. The gateway signs receipts and computes netting. Operators can run their own clearing node for full independence.",
-    items: ["Receipt signing", "Netting computation", "Window management"],
+    title: "TEE-Secured",
+    description: "Netting computation runs inside an Intel TDX Trusted Execution Environment on Phala Cloud. Cryptographic attestation proves the exact code that computed every settlement batch.",
+    items: ["Intel TDX hardware enclave", "Cryptographic attestation per window", "Open-source on Phala\u2019s dstack"],
   },
   {
     title: "Verified",
@@ -49,7 +49,14 @@ export default function TrustSection() {
           ))}
         </div>
 
-        <FadeIn delay={400} className="mt-16">
+        <FadeIn delay={350} className="mt-16">
+          <p className="text-[#6B7280] text-base leading-relaxed max-w-3xl mb-10">
+            Three layers of trust: hardware attestation (TEE), mathematical proof (Merkle),
+            and on-chain finality (Solana). Circle offers one. Stratum offers all three.
+          </p>
+        </FadeIn>
+
+        <FadeIn delay={400}>
           <div className="flex flex-col sm:flex-row gap-3 items-start">
             <a href="https://explorer.stratum.valeo.com" className="inline-flex items-center justify-center rounded-none px-6 py-3 text-sm font-medium bg-[#003FFF] text-white hover:bg-[#0033CC] transition-colors">
               Open Explorer &rarr;

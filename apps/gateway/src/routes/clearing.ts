@@ -12,6 +12,7 @@ import {
 import { getReceiptStore, getFinalizedWindows, getCurrentWindowInfo, submitReceipt } from "../settlement";
 import { toHex, getGatewayPrivateKey, verifyPaymentSignature } from "../crypto";
 import { prisma } from "../db";
+import { getTeeAttestation, getTeeStatus } from "../tee";
 
 function serializeReceipt(sr: any) {
   return {
@@ -146,6 +147,8 @@ export default async function clearingRoutes(fastify: FastifyInstance) {
       };
     });
 
+    const teeStatus = await getTeeStatus();
+
     const result = {
       protocol: "stratum-x402",
       totalGrossReceipts,
@@ -163,6 +166,12 @@ export default async function clearingRoutes(fastify: FastifyInstance) {
         return c;
       })(),
       anchorProgram: process.env.ANCHOR_PROGRAM_ID ?? null,
+      tee: {
+        enabled: teeStatus.enabled,
+        provider: teeStatus.provider,
+        enclave: teeStatus.enclave,
+        attestationEndpoint: "/v1/attestation",
+      },
       last24h: {
         grossReceipts: receipts24h,
         grossVolume: volume24h,
@@ -397,5 +406,44 @@ export default async function clearingRoutes(fastify: FastifyInstance) {
       windowId: receipt.window_id,
       sequence: seq,
     });
+  });
+
+  fastify.get("/v1/attestation", async () => {
+    const GATEWAY_VERSION = "0.4.0";
+    const teeStatus = await getTeeStatus();
+
+    if (!teeStatus.enabled) {
+      return { tee: false, provider: "none", message: "Not running in TEE environment" };
+    }
+
+    const current = getCurrentWindowInfo();
+    const windows = getFinalizedWindows();
+    const latest = windows[windows.length - 1];
+    const merkleRootHex = latest ? toHex(latest.merkleRoot) : "none";
+
+    const reportInput = `${current.windowId}:${merkleRootHex}:${GATEWAY_VERSION}`;
+    const reportData = toHex(sha256(new TextEncoder().encode(reportInput)));
+
+    const attestation = await getTeeAttestation(reportData);
+
+    if (!attestation) {
+      return { tee: false, provider: "none", message: "TEE attestation unavailable" };
+    }
+
+    const quoteB64 = Buffer.from(attestation.quote).toString("base64");
+
+    return {
+      tee: true,
+      provider: "phala-cloud",
+      enclave: "intel-tdx",
+      attestation: {
+        quote: quoteB64,
+        reportData,
+        timestamp: new Date().toISOString(),
+        windowId: current.windowId,
+        merkleRoot: merkleRootHex,
+      },
+      verify: `https://proof.phala.network/verify?quote=${encodeURIComponent(quoteB64)}`,
+    };
   });
 }

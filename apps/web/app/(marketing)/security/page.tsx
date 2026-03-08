@@ -39,11 +39,12 @@ export default function SecurityPage() {
           <FadeIn delay={150}>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
               <div className="rounded-none border border-[#E5E7EB] bg-[#FAFAFA] p-6">
-                <h3 className="font-mono text-[#3B82F6] text-xs font-medium mb-3 uppercase tracking-wider">Trusted</h3>
+                <h3 className="font-mono text-[#3B82F6] text-xs font-medium mb-3 uppercase tracking-wider">TEE-Secured (Hardware)</h3>
                 <P>
-                  The Stratum node signs receipts with its Ed25519 key.
-                  Participants trust that the node correctly records payment intents.
-                  The node never holds funds.
+                  The Stratum node runs inside an Intel TDX enclave on Phala Cloud.
+                  Cryptographic attestation (TDX Quote) proves exactly what code executed
+                  the netting computation. Even the operator cannot tamper with execution
+                  or extract keys.
                 </P>
               </div>
               <div className="rounded-none border border-[#E5E7EB] bg-[#FAFAFA] p-6">
@@ -144,6 +145,11 @@ export default function SecurityPage() {
                     <td className="py-3 pr-6 text-[#6B7280]">Deterministic JSON serialization for signing</td>
                     <td className="py-3 font-mono text-[#9CA3AF] text-sm">Custom (sorted keys, BigInt/Uint8Array encoding)</td>
                   </tr>
+                  <tr>
+                    <td className="py-3 pr-6 font-mono text-[#3B82F6] text-sm">Intel TDX Quote</td>
+                    <td className="py-3 pr-6 text-[#6B7280]">TEE attestation, netting computation integrity</td>
+                    <td className="py-3 font-mono text-[#9CA3AF] text-sm">@phala/dstack-sdk</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
@@ -171,6 +177,39 @@ export default function SecurityPage() {
               anyone can recompute the path to the root and verify it matches the on-chain commitment.
               No trust in Stratum is required for verification.
             </P>
+          </FadeIn>
+
+          <FadeIn delay={100}>
+            <SectionTitle>Three Layers of Trust</SectionTitle>
+          </FadeIn>
+
+          <FadeIn delay={150}>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+              <div className="rounded-none border border-[#3B82F6]/30 bg-[#EFF6FF] p-6">
+                <h3 className="font-mono text-[#3B82F6] text-xs font-medium mb-3 uppercase tracking-wider">Layer 1: Hardware Attestation</h3>
+                <P>
+                  Intel TDX enclave proves the code ran correctly and was not tampered with.
+                  Attestation quotes are publicly verifiable at{" "}
+                  <InlineCode>proof.phala.network</InlineCode>.
+                </P>
+              </div>
+              <div className="rounded-none border border-[#10B981]/30 bg-[#ECFDF5] p-6">
+                <h3 className="font-mono text-[#10B981] text-xs font-medium mb-3 uppercase tracking-wider">Layer 2: Mathematical Proof</h3>
+                <P>
+                  Every receipt is hashed into an RFC 6962 Merkle tree. Inclusion proofs
+                  let anyone verify a receipt exists in a settlement window without trusting
+                  the operator.
+                </P>
+              </div>
+              <div className="rounded-none border border-[#D97706]/30 bg-[#FFFBEB] p-6">
+                <h3 className="font-mono text-[#D97706] text-xs font-medium mb-3 uppercase tracking-wider">Layer 3: On-Chain Finality</h3>
+                <P>
+                  Merkle roots are anchored on Solana. The chain is the ultimate source of truth.
+                  Anyone can verify any receipt against the on-chain commitment.
+                </P>
+              </div>
+            </div>
+            <P>Most payment systems offer one of these. Stratum offers all three.</P>
           </FadeIn>
 
           <FadeIn delay={200}>

@@ -1,0 +1,10 @@
+services:
+  gateway:
+    image: valeocash/stratum-gateway:latest
+    ports:
+      - "3100:3100"
+    volumes:
+      - /var/run/dstack.sock:/var/run/dstack.sock
+    env_file:
+      - .env
+    restart: always
