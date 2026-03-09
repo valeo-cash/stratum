@@ -50,6 +50,37 @@ export async function getStats() {
   return gw<GatewayStats>("/admin/stats");
 }
 
+export interface AnalyticsData {
+  protocol: string;
+  totalGrossReceipts: number;
+  totalGrossVolume: string;
+  totalGrossVolumeUSDC: number;
+  totalNetTransfers: number;
+  compressionRatio: number;
+  windowsFinalized: number;
+  activeServices: number;
+  chains: string[];
+  last24h: {
+    grossReceipts: number;
+    grossVolume: string;
+    grossVolumeUSDC: number;
+    netTransfers: number;
+    compression: number;
+  };
+  services: {
+    slug: string;
+    name: string;
+    grossReceipts: number;
+    grossVolume: string;
+    grossVolumeUSDC: number;
+  }[];
+  updatedAt: string;
+}
+
+export async function getAnalytics() {
+  return gw<AnalyticsData>("/v1/analytics");
+}
+
 export async function getStatus() {
   return gw("/v1/status");
 }

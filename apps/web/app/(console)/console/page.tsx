@@ -1,4 +1,4 @@
-import { getStats, getReceipts } from "@/app/lib/gateway";
+import { getAnalytics, getStats, getReceipts } from "@/app/lib/gateway";
 import { DollarSign, Fuel, Server, Anchor } from "lucide-react";
 import nextDynamic from "next/dynamic";
 
@@ -22,10 +22,13 @@ function ChainBadge({ chain }: { chain: string }) {
 }
 
 export default async function ConsoleDashboardPage() {
-  const stats = await getStats();
-  const recentReceipts = await getReceipts({ limit: 15 });
+  const [analytics, stats, recentReceipts] = await Promise.all([
+    getAnalytics(),
+    getStats(),
+    getReceipts({ limit: 15 }),
+  ]);
 
-  if (!stats) {
+  if (!analytics) {
     return (
       <div className="p-6 lg:p-10 max-w-[1200px]">
         <h1 className="text-[#0A0A0A] mb-1" style={{ fontSize: "1.5rem", fontWeight: 500 }}>Dashboard</h1>
@@ -37,14 +40,14 @@ export default async function ConsoleDashboardPage() {
     );
   }
 
-  const gross = stats.totalReceipts ?? 0;
-  const windows = stats.windowsFinalized ?? 0;
-  const services = stats.activeServices ?? 1;
-  const net = gross > 0 ? Math.max(windows * Math.max(services, 1), windows || 1) : 0;
-  const compression = gross > 0 && net > 0 ? gross / net : 0;
-  const feeReduction = gross > 0 && net > 0 ? ((1 - net / gross) * 100) : 0;
-  const gasSaved = gross > 0 ? (gross - net) * 0.005 : 0;
-  const grossVolume = stats.totalVolumeUSDC ?? 0;
+  const gross = analytics.totalGrossReceipts;
+  const grossVolume = analytics.totalGrossVolumeUSDC;
+  const services = analytics.activeServices;
+  const windows = analytics.windowsFinalized;
+  const netTransfers = analytics.totalNetTransfers;
+  const compression = analytics.compressionRatio;
+  const gasSaved = gross > 0 ? (gross - netTransfers) * 0.005 : 0;
+  const feeReduction = gross > 0 && netTransfers > 0 ? ((1 - netTransfers / gross) * 100) : 0;
 
   const statCards = [
     { label: "Gross Payments", value: gross.toLocaleString(), icon: DollarSign, color: "#10B981", extra: null },
@@ -85,16 +88,16 @@ export default async function ConsoleDashboardPage() {
             <div>
               <p className="text-[11px] font-mono text-[#9CA3AF] uppercase tracking-[0.1em] mb-2">Netting Ratio</p>
               <p className="text-[#0A0A0A] font-mono" style={{ fontSize: "1.5rem", fontWeight: 500 }}>
-                {gross > 0 ? `${gross} : ${net}` : "—"}
+                {gross > 0 ? `${gross} : ${netTransfers}` : "—"}
               </p>
               <p className="text-[11px] text-[#9CA3AF] mt-1">
-                {gross > 0 ? `${compression.toFixed(1)}× compression` : "No data yet"}
+                {compression > 0 ? `${compression.toFixed(1)}× compression` : "No data yet"}
               </p>
             </div>
             <div>
               <p className="text-[11px] font-mono text-[#9CA3AF] uppercase tracking-[0.1em] mb-2">Net Settlements</p>
               <p className="text-[#0A0A0A] font-mono" style={{ fontSize: "1.5rem", fontWeight: 500 }}>
-                {gross > 0 ? net.toLocaleString() : "—"}
+                {netTransfers > 0 ? netTransfers.toLocaleString() : "—"}
               </p>
               <p className="text-[11px] text-[#9CA3AF] mt-1">on-chain transfers</p>
             </div>
@@ -116,6 +119,33 @@ export default async function ConsoleDashboardPage() {
         </div>
       </div>
 
+      {/* Services Breakdown */}
+      {analytics.services.length > 0 && (
+        <div className="bg-[#FAFAFA] border border-[#E5E7EB] rounded-none p-5 mb-8">
+          <h3 className="text-[11px] font-mono text-[#9CA3AF] uppercase tracking-[0.15em] mb-4">Services</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="text-[11px] font-mono text-[#9CA3AF] uppercase tracking-[0.1em]">
+                  <th className="pb-3 font-normal">Service</th>
+                  <th className="pb-3 font-normal">Receipts</th>
+                  <th className="pb-3 font-normal">Volume</th>
+                </tr>
+              </thead>
+              <tbody>
+                {analytics.services.map((svc) => (
+                  <tr key={svc.slug} className="border-t border-[#E5E7EB]">
+                    <td className="py-2.5 text-[#0A0A0A] text-xs font-medium">{svc.name}</td>
+                    <td className="py-2.5 text-[#0A0A0A] font-mono text-xs">{svc.grossReceipts.toLocaleString()}</td>
+                    <td className="py-2.5 text-[#0A0A0A] font-mono text-xs">${svc.grossVolumeUSDC.toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* Net Settlement Summary */}
       <div className="bg-[#FAFAFA] border border-[#E5E7EB] rounded-none p-5 mb-8">
         <h3 className="text-[11px] font-mono text-[#9CA3AF] uppercase tracking-[0.15em] mb-4">Net Settlement Summary</h3>
@@ -125,11 +155,8 @@ export default async function ConsoleDashboardPage() {
             <p className="text-sm font-mono text-[#0A0A0A]">${grossVolume.toFixed(3)}</p>
           </div>
           <div>
-            <p className="text-[11px] text-[#9CA3AF] mb-1">Net Settlement</p>
-            <p className="text-sm font-mono text-[#0A0A0A]">
-              ${grossVolume.toFixed(3)}
-              {services <= 1 && <span className="text-[10px] text-[#9CA3AF] ml-1">(1 service)</span>}
-            </p>
+            <p className="text-[11px] text-[#9CA3AF] mb-1">Net Transfers</p>
+            <p className="text-sm font-mono text-[#0A0A0A]">{netTransfers}</p>
           </div>
           <div>
             <p className="text-[11px] text-[#9CA3AF] mb-1">Merkle Anchors</p>
@@ -137,13 +164,38 @@ export default async function ConsoleDashboardPage() {
           </div>
           <div>
             <p className="text-[11px] text-[#9CA3AF] mb-1">Compression</p>
-            <p className="text-sm font-mono text-[#0A0A0A]">{gross > 0 ? `${compression.toFixed(1)}×` : "—"}</p>
+            <p className="text-sm font-mono text-[#0A0A0A]">{compression > 0 ? `${compression.toFixed(1)}×` : "—"}</p>
           </div>
         </div>
       </div>
 
-      {/* Current Window */}
-      {stats.currentWindow && (
+      {/* 24h Stats */}
+      {analytics.last24h.grossReceipts > 0 && (
+        <div className="bg-[#FAFAFA] border border-[#E5E7EB] rounded-none p-5 mb-8">
+          <h3 className="text-[11px] font-mono text-[#9CA3AF] uppercase tracking-[0.15em] mb-4">Last 24 Hours</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
+            <div>
+              <p className="text-[11px] text-[#9CA3AF] mb-1">Receipts</p>
+              <p className="text-sm font-mono text-[#0A0A0A]">{analytics.last24h.grossReceipts.toLocaleString()}</p>
+            </div>
+            <div>
+              <p className="text-[11px] text-[#9CA3AF] mb-1">Volume</p>
+              <p className="text-sm font-mono text-[#0A0A0A]">${analytics.last24h.grossVolumeUSDC.toFixed(2)}</p>
+            </div>
+            <div>
+              <p className="text-[11px] text-[#9CA3AF] mb-1">Net Transfers</p>
+              <p className="text-sm font-mono text-[#0A0A0A]">{analytics.last24h.netTransfers}</p>
+            </div>
+            <div>
+              <p className="text-[11px] text-[#9CA3AF] mb-1">Compression</p>
+              <p className="text-sm font-mono text-[#0A0A0A]">{analytics.last24h.compression > 0 ? `${analytics.last24h.compression.toFixed(1)}×` : "—"}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Current Window (from /admin/stats session data) */}
+      {stats?.currentWindow && (
         <div className="bg-[#FAFAFA] border border-[#E5E7EB] rounded-none p-5 mb-8">
           <div className="flex items-center justify-between mb-4">
             <span className="text-[11px] font-mono text-[#9CA3AF] uppercase tracking-[0.15em]">Current Window</span>
@@ -159,7 +211,7 @@ export default async function ConsoleDashboardPage() {
       )}
 
       {/* Recent Finalized Windows */}
-      {stats.recentWindows?.length > 0 && (
+      {(stats?.recentWindows?.length ?? 0) > 0 && (
         <div className="bg-[#FAFAFA] border border-[#E5E7EB] rounded-none p-5 mb-8">
           <h3 className="text-[11px] font-mono text-[#9CA3AF] uppercase tracking-[0.15em] mb-4">Recent Finalized Windows</h3>
           <div className="overflow-x-auto">
@@ -174,7 +226,7 @@ export default async function ConsoleDashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {stats.recentWindows.map((w: any) => (
+                {stats!.recentWindows.map((w: any) => (
                   <tr key={w.id} className="border-t border-[#E5E7EB]">
                     <td className="py-2.5 text-[#003FFF] font-mono text-xs">{w.id}</td>
                     <td className="py-2.5 text-[#0A0A0A] font-mono text-xs">{w.receiptCount}</td>
