@@ -16,35 +16,88 @@ export function getTeeStatus() {
   };
 }
 
+function httpOverSocket(path: string, body?: string): Promise<{ status: number; body: string }> {
+  return new Promise((resolve) => {
+    const opts: http.RequestOptions = {
+      socketPath: DSTACK_SOCK,
+      path,
+      method: body ? "POST" : "GET",
+      headers: body
+        ? { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body) }
+        : {},
+    };
+
+    const req = http.request(opts, (res) => {
+      let data = "";
+      res.on("data", (chunk) => (data += chunk));
+      res.on("end", () => resolve({ status: res.statusCode ?? 0, body: data }));
+    });
+    req.on("error", (err) => {
+      resolve({ status: 0, body: (err as Error).message || String(err) });
+    });
+    if (body) req.write(body);
+    req.end();
+  });
+}
+
 export async function getTeeAttestation(reportData: string): Promise<any> {
   if (!isTeeAvailable()) return null;
 
-  return new Promise((resolve) => {
-    const postData = JSON.stringify({ report_data: reportData });
-    const req = http.request(
-      {
-        socketPath: DSTACK_SOCK,
-        path: "/prpc/Tappd.TdxQuote",
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Content-Length": Buffer.byteLength(postData),
-        },
-      },
-      (res) => {
-        let data = "";
-        res.on("data", (chunk) => (data += chunk));
-        res.on("end", () => {
-          try {
-            resolve(JSON.parse(data));
-          } catch {
-            resolve(null);
-          }
-        });
-      },
-    );
-    req.on("error", () => resolve(null));
-    req.write(postData);
-    req.end();
-  });
+  const hexEncoded = Buffer.from(reportData).toString("hex");
+  const postData = JSON.stringify({ report_data: hexEncoded });
+
+  const paths = ["/prpc/Tappd.TdxQuote", "/prpc/tappd.TdxQuote"];
+
+  for (const path of paths) {
+    try {
+      const res = await httpOverSocket(path, postData);
+      if (res.status >= 200 && res.status < 300 && res.body) {
+        const parsed = JSON.parse(res.body);
+        if (parsed && (parsed.quote || parsed.Quote)) return parsed;
+        console.error(`[tee] ${path} returned unexpected shape:`, res.body.slice(0, 200));
+      } else {
+        console.error(`[tee] ${path} returned status ${res.status}:`, res.body.slice(0, 200));
+      }
+    } catch (err: any) {
+      console.error(`[tee] ${path} request failed:`, err.message || err);
+    }
+  }
+
+  return null;
+}
+
+export async function debugTeeSocket(): Promise<any> {
+  const socketExists = existsSync(DSTACK_SOCK);
+  if (!socketExists) {
+    return { socketExists: false, error: "Socket file not found" };
+  }
+
+  const result: any = { socketExists: true, probes: [] };
+
+  const probePaths = [
+    { path: "/prpc/Tappd.TdxQuote", method: "POST", body: JSON.stringify({ report_data: "deadbeef" }) },
+    { path: "/prpc/tappd.TdxQuote", method: "POST", body: JSON.stringify({ report_data: "deadbeef" }) },
+    { path: "/prpc/Tappd.Info", method: "GET" },
+    { path: "/", method: "GET" },
+  ];
+
+  for (const probe of probePaths) {
+    try {
+      const res = await httpOverSocket(probe.path, probe.body);
+      result.probes.push({
+        path: probe.path,
+        method: probe.method,
+        status: res.status,
+        body: res.body.slice(0, 500),
+      });
+    } catch (err: any) {
+      result.probes.push({
+        path: probe.path,
+        method: probe.method,
+        error: err.message || String(err),
+      });
+    }
+  }
+
+  return result;
 }

@@ -12,7 +12,7 @@ import {
 import { getReceiptStore, getFinalizedWindows, getCurrentWindowInfo, submitReceipt } from "../settlement";
 import { toHex, getGatewayPrivateKey, verifyPaymentSignature } from "../crypto";
 import { prisma } from "../db";
-import { getTeeAttestation, getTeeStatus } from "../tee";
+import { getTeeAttestation, getTeeStatus, debugTeeSocket } from "../tee";
 
 function serializeReceipt(sr: any) {
   return {
@@ -406,6 +406,10 @@ export default async function clearingRoutes(fastify: FastifyInstance) {
       windowId: receipt.window_id,
       sequence: seq,
     });
+  });
+
+  fastify.get("/v1/tee-debug", async () => {
+    return debugTeeSocket();
   });
 
   fastify.get("/v1/attestation", async () => {
