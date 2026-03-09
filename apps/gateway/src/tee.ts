@@ -1,13 +1,51 @@
 import { existsSync } from "fs";
 import http from "http";
 
+const TAPPD_SOCK = "/var/run/tappd.sock";
 const DSTACK_SOCK = "/var/run/dstack.sock";
-const TAPPD_HOST = "localhost";
-const TAPPD_PORT = 8090;
 
-function httpGet(host: string, port: number, path: string): Promise<{ status: number; headers: Record<string, string>; body: string }> {
+function getSocketPath(): string | null {
+  if (existsSync(TAPPD_SOCK)) return TAPPD_SOCK;
+  if (existsSync(DSTACK_SOCK)) return DSTACK_SOCK;
+  return null;
+}
+
+function getEndpoint(): { type: "socket"; path: string } | { type: "http"; host: string; port: number } | null {
+  const sim = process.env.TAPPD_SIMULATOR_ENDPOINT;
+  if (sim) {
+    try {
+      const u = new URL(sim);
+      return { type: "http", host: u.hostname, port: parseInt(u.port || "8090", 10) };
+    } catch { /* fall through */ }
+  }
+  const sock = getSocketPath();
+  if (sock) return { type: "socket", path: sock };
+  return null;
+}
+
+function doRequest(
+  method: string,
+  path: string,
+  body?: string,
+  contentType = "application/json",
+  endpoint?: ReturnType<typeof getEndpoint>,
+): Promise<{ status: number; headers: Record<string, string>; body: string }> {
+  const ep = endpoint ?? getEndpoint();
+  if (!ep) return Promise.resolve({ status: 0, headers: {}, body: "no tappd endpoint" });
+
   return new Promise((resolve) => {
-    const req = http.request({ host, port, path, method: "GET" }, (res) => {
+    const headers: Record<string, string> = {};
+    if (body != null && body.length > 0) {
+      headers["Content-Type"] = contentType;
+      headers["Content-Length"] = String(Buffer.byteLength(body));
+    }
+
+    const opts: http.RequestOptions =
+      ep.type === "socket"
+        ? { socketPath: ep.path, path, method, headers }
+        : { host: ep.host, port: ep.port, path, method, headers };
+
+    const req = http.request(opts, (res) => {
       let data = "";
       res.on("data", (chunk) => (data += chunk));
       res.on("end", () =>
@@ -20,41 +58,7 @@ function httpGet(host: string, port: number, path: string): Promise<{ status: nu
     });
     req.on("error", (err) => resolve({ status: 0, headers: {}, body: (err as Error).message }));
     req.setTimeout(5000, () => { req.destroy(); resolve({ status: 0, headers: {}, body: "timeout" }); });
-    req.end();
-  });
-}
-
-function httpPost(
-  host: string,
-  port: number,
-  path: string,
-  body: string,
-  contentType = "application/json",
-): Promise<{ status: number; headers: Record<string, string>; body: string }> {
-  return new Promise((resolve) => {
-    const req = http.request(
-      {
-        host,
-        port,
-        path,
-        method: "POST",
-        headers: { "Content-Type": contentType, "Content-Length": Buffer.byteLength(body) },
-      },
-      (res) => {
-        let data = "";
-        res.on("data", (chunk) => (data += chunk));
-        res.on("end", () =>
-          resolve({
-            status: res.statusCode ?? 0,
-            headers: flatHeaders(res.headers),
-            body: data,
-          }),
-        );
-      },
-    );
-    req.on("error", (err) => resolve({ status: 0, headers: {}, body: (err as Error).message }));
-    req.setTimeout(5000, () => { req.destroy(); resolve({ status: 0, headers: {}, body: "timeout" }); });
-    req.write(body);
+    if (body != null && body.length > 0) req.write(body);
     req.end();
   });
 }
@@ -66,7 +70,8 @@ function flatHeaders(h: http.IncomingHttpHeaders): Record<string, string> {
 }
 
 export function isTeeAvailable(): boolean {
-  return existsSync(DSTACK_SOCK);
+  if (process.env.TAPPD_SIMULATOR_ENDPOINT) return true;
+  return existsSync(TAPPD_SOCK) || existsSync(DSTACK_SOCK);
 }
 
 export function getTeeStatus() {
@@ -85,7 +90,7 @@ export async function getTeeAttestation(reportData: string): Promise<any> {
   const postBody = JSON.stringify({ report_data: hexEncoded });
 
   try {
-    const res = await httpPost(TAPPD_HOST, TAPPD_PORT, "/prpc/Tappd.TdxQuote", postBody);
+    const res = await doRequest("POST", "/prpc/Tappd.TdxQuote", postBody);
     if (res.status >= 200 && res.status < 300 && res.body) {
       const parsed = JSON.parse(res.body);
       if (parsed && (parsed.quote || parsed.Quote)) return parsed;
@@ -101,50 +106,76 @@ export async function getTeeAttestation(reportData: string): Promise<any> {
 }
 
 export async function debugTeeSocket(): Promise<any> {
-  const socketExists = existsSync(DSTACK_SOCK);
-
-  let tappdReachable = false;
-  try {
-    const ping = await httpGet(TAPPD_HOST, TAPPD_PORT, "/");
-    tappdReachable = ping.status > 0;
-  } catch { /* unreachable */ }
+  const tappdSockExists = existsSync(TAPPD_SOCK);
+  const dstackSockExists = existsSync(DSTACK_SOCK);
+  const simEndpoint = process.env.TAPPD_SIMULATOR_ENDPOINT || null;
+  const activeEndpoint = getEndpoint();
 
   const result: any = {
-    socketExists,
-    tappdHost: `${TAPPD_HOST}:${TAPPD_PORT}`,
-    tappdReachable,
+    tappdSockExists,
+    dstackSockExists,
+    simulatorEndpoint: simEndpoint,
+    activeEndpoint,
     probes: [],
   };
 
-  const probes: { label: string; method: "GET" | "POST"; path: string; body?: string }[] = [
-    { label: "root", method: "GET", path: "/" },
-    { label: "TdxQuote empty", method: "POST", path: "/prpc/Tappd.TdxQuote", body: "{}" },
+  const probeDefs: { label: string; method: string; path: string; body?: string }[] = [
     { label: "TdxQuote with report_data", method: "POST", path: "/prpc/Tappd.TdxQuote", body: JSON.stringify({ report_data: "deadbeef" }) },
+    { label: "TdxQuote empty", method: "POST", path: "/prpc/Tappd.TdxQuote", body: "{}" },
     { label: "DeriveKey", method: "GET", path: "/prpc/Tappd.DeriveKey" },
     { label: "GetInfo", method: "GET", path: "/prpc/Tappd.GetInfo" },
+    { label: "root", method: "GET", path: "/" },
   ];
 
-  for (const probe of probes) {
-    try {
-      const res = probe.method === "POST"
-        ? await httpPost(TAPPD_HOST, TAPPD_PORT, probe.path, probe.body ?? "")
-        : await httpGet(TAPPD_HOST, TAPPD_PORT, probe.path);
+  // Probe the active endpoint (tappd.sock, simulator, or dstack.sock fallback)
+  if (activeEndpoint) {
+    for (const probe of probeDefs) {
+      try {
+        const res = await doRequest(probe.method, probe.path, probe.body, "application/json", activeEndpoint);
+        result.probes.push({
+          label: probe.label,
+          endpoint: activeEndpoint,
+          path: probe.path,
+          method: probe.method,
+          status: res.status,
+          responseHeaders: res.headers,
+          body: res.body.slice(0, 500),
+        });
+      } catch (err: any) {
+        result.probes.push({
+          label: probe.label,
+          endpoint: activeEndpoint,
+          path: probe.path,
+          method: probe.method,
+          error: err.message || String(err),
+        });
+      }
+    }
+  }
 
-      result.probes.push({
-        label: probe.label,
-        path: probe.path,
-        method: probe.method,
-        status: res.status,
-        responseHeaders: res.headers,
-        body: res.body.slice(0, 500),
-      });
-    } catch (err: any) {
-      result.probes.push({
-        label: probe.label,
-        path: probe.path,
-        method: probe.method,
-        error: err.message || String(err),
-      });
+  // If tappd.sock exists but wasn't the active endpoint, also probe it directly
+  if (tappdSockExists && activeEndpoint?.type !== "socket") {
+    const tappdEp = { type: "socket" as const, path: TAPPD_SOCK };
+    for (const probe of probeDefs.slice(0, 2)) {
+      try {
+        const res = await doRequest(probe.method, probe.path, probe.body, "application/json", tappdEp);
+        result.probes.push({
+          label: `[tappd.sock] ${probe.label}`,
+          endpoint: tappdEp,
+          path: probe.path,
+          method: probe.method,
+          status: res.status,
+          responseHeaders: res.headers,
+          body: res.body.slice(0, 500),
+        });
+      } catch (err: any) {
+        result.probes.push({
+          label: `[tappd.sock] ${probe.label}`,
+          endpoint: tappdEp,
+          path: probe.path,
+          error: err.message || String(err),
+        });
+      }
     }
   }
 
