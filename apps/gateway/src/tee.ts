@@ -1,44 +1,50 @@
-import { TappdClient } from "@phala/dstack-sdk";
+import { existsSync } from "fs";
+import http from "http";
 
-let cachedAvailable: boolean | null = null;
+const DSTACK_SOCK = "/var/run/dstack.sock";
 
-function getClient(): TappdClient {
-  return new TappdClient();
+export function isTeeAvailable(): boolean {
+  return existsSync(DSTACK_SOCK);
 }
 
-export async function isTeeAvailable(): Promise<boolean> {
-  if (cachedAvailable !== null) return cachedAvailable;
-  try {
-    const client = getClient();
-    await client.tdxQuote("probe");
-    cachedAvailable = true;
-  } catch {
-    cachedAvailable = false;
-  }
-  return cachedAvailable;
-}
-
-export async function getTeeAttestation(
-  reportData: string,
-): Promise<{ quote: string } | null> {
-  try {
-    const client = getClient();
-    const result = await client.tdxQuote(reportData);
-    return { quote: typeof result === "string" ? result : JSON.stringify(result) };
-  } catch {
-    return null;
-  }
-}
-
-export async function getTeeStatus(): Promise<{
-  enabled: boolean;
-  provider: string;
-  enclave: string;
-}> {
-  const available = await isTeeAvailable();
+export function getTeeStatus() {
+  const enabled = isTeeAvailable();
   return {
-    enabled: available,
-    provider: available ? "phala-cloud" : "none",
-    enclave: available ? "intel-tdx" : "none",
+    enabled,
+    provider: enabled ? "phala-cloud" : "none",
+    enclave: enabled ? "intel-tdx" : "none",
   };
+}
+
+export async function getTeeAttestation(reportData: string): Promise<any> {
+  if (!isTeeAvailable()) return null;
+
+  return new Promise((resolve) => {
+    const postData = JSON.stringify({ report_data: reportData });
+    const req = http.request(
+      {
+        socketPath: DSTACK_SOCK,
+        path: "/prpc/Tappd.TdxQuote",
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(postData),
+        },
+      },
+      (res) => {
+        let data = "";
+        res.on("data", (chunk) => (data += chunk));
+        res.on("end", () => {
+          try {
+            resolve(JSON.parse(data));
+          } catch {
+            resolve(null);
+          }
+        });
+      },
+    );
+    req.on("error", () => resolve(null));
+    req.write(postData);
+    req.end();
+  });
 }
