@@ -123,6 +123,12 @@ const start = async () => {
     await loadServicesFromDb();
     await retryPendingWindows();
     startSettlementLoop();
+
+    if (process.env.ENABLE_SIMULATOR === "true") {
+      const { startSimulator } = await import("./simulator");
+      startSimulator();
+    }
+
     const port = parseInt(process.env.PORT || "3100", 10);
     const host = process.env.HOST || "0.0.0.0";
     await server.listen({ port, host });
