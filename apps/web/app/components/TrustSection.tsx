@@ -13,8 +13,8 @@ const levels = [
   },
   {
     title: "On-Chain",
-    description: "Stratum settles USDC automatically to service wallets. Facilitators can also execute settlements themselves using the webhook API or SDK for custom flows.",
-    items: ["Automatic USDC settlement on Solana and Base", "Facilitator webhook API for custom settlement", "On-chain Merkle root audit trail"],
+    description: "Stratum settles USDC automatically to service wallets on Solana and Base. Merkle roots are anchored on-chain. Every settlement is independently verifiable.",
+    items: ["Automatic USDC settlement", "Merkle root on-chain anchoring", "Public analytics API"],
   },
 ];
 

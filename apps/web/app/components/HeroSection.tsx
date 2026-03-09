@@ -49,7 +49,7 @@ export default function HeroSection() {
             I&rsquo;m a facilitator
           </a>
           <a
-            href="/docs/facilitators"
+            href="/docs/facilitators#quickstart"
             className="inline-flex items-center justify-center rounded-none px-6 py-3 text-sm font-medium border border-[#E5E7EB] text-[#6B7280] hover:text-[#0A0A0A] hover:border-[#D1D5DB] transition-colors"
           >
             I&rsquo;m a seller
