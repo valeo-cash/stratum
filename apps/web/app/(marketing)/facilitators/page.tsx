@@ -68,6 +68,7 @@ const automatedFeatures = [
   "Computes multilateral netting (1,000 payments → ~10 transfers)",
   "Builds Merkle proof tree (RFC 6962)",
   "Anchors Merkle root on Solana mainnet",
+  "Produces TEE attestation per settlement window (Intel TDX on Phala Cloud)",
   "Executes USDC transfers to your service wallets",
   "Supports Solana and Base",
 ];
