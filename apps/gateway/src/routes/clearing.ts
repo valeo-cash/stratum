@@ -13,6 +13,8 @@ import { getReceiptStore, getFinalizedWindows, getCurrentWindowInfo, submitRecei
 import { toHex, getGatewayPrivateKey, verifyPaymentSignature } from "../crypto";
 import { prisma } from "../db";
 import { getTeeAttestation, getTeeStatus, debugTeeSocket } from "../tee";
+import { checkBalance } from "../balance-check";
+import { verifyAuthorization, type AuthorizationType, type Eip3009Auth } from "../auth-hold";
 
 function serializeReceipt(sr: any) {
   return {
@@ -331,6 +333,8 @@ export default async function clearingRoutes(fastify: FastifyInstance) {
       signature: string;
       validUntil?: string;
       chain?: string;
+      approvalTxSignature?: string;
+      eip3009Auth?: Eip3009Auth;
     };
 
     if (!body.payer || !body.payee || !body.amount || !body.nonce || !body.signature) {
@@ -364,6 +368,58 @@ export default async function clearingRoutes(fastify: FastifyInstance) {
       return reply.status(403).send({ error: "Invalid payment signature" });
     }
 
+    const enableBalanceCheck = process.env.ENABLE_BALANCE_CHECK !== "false";
+    const balanceCheckMin = BigInt(process.env.BALANCE_CHECK_MIN_AMOUNT || "0");
+    const receiptAmount = BigInt(body.amount);
+
+    if (enableBalanceCheck && receiptAmount >= balanceCheckMin) {
+      const chain = body.chain || "solana";
+      try {
+        const balance = await checkBalance(body.payer, chain);
+        if (balance < receiptAmount) {
+          console.log(`[balance] Rejected receipt from ${body.payer}: needs ${receiptAmount}, has ${balance}`);
+          return reply.status(402).send({
+            error: "insufficient_balance",
+            message: "Payer balance insufficient",
+            required: body.amount,
+            available: balance.toString(),
+          });
+        }
+      } catch (err) {
+        console.error("[balance] Check failed, allowing receipt:", err);
+      }
+    }
+
+    const authHoldThreshold = BigInt(process.env.AUTH_HOLD_THRESHOLD || "1000000");
+    let authType: AuthorizationType = "none";
+
+    if (receiptAmount >= authHoldThreshold) {
+      const chain = body.chain || "solana";
+      const hasAuth = !!(body.approvalTxSignature || body.eip3009Auth);
+
+      if (hasAuth) {
+        const result = await verifyAuthorization({
+          chain,
+          payerAddress: body.payer,
+          amount: receiptAmount,
+          approvalTxSignature: body.approvalTxSignature,
+          eip3009Auth: body.eip3009Auth,
+        });
+
+        if (!result.valid) {
+          return reply.status(403).send({
+            error: "invalid_authorization",
+            message: "Authorization hold verification failed",
+          });
+        }
+        authType = result.type;
+      } else {
+        authType = enableBalanceCheck ? "balance-check" : "none";
+      }
+    } else {
+      authType = enableBalanceCheck && receiptAmount >= balanceCheckMin ? "balance-check" : "none";
+    }
+
     const seq = ++directSeq;
     const resourceHash = sha256(new TextEncoder().encode(`direct-receipt-${seq}`));
     const receiptId = createReceiptId(`rcpt-${Date.now().toString(36)}-d${seq}`);
@@ -388,6 +444,9 @@ export default async function clearingRoutes(fastify: FastifyInstance) {
       timestamp: Date.now(),
       facilitator_id: createFacilitatorId("mock-facilitator"),
       nonce: body.nonce,
+      authorizationType: authType,
+      approvalTxSignature: body.approvalTxSignature,
+      eip3009Auth: body.eip3009Auth,
     };
 
     const signedReceipt = await signReceipt(receipt, getGatewayPrivateKey());

@@ -11,6 +11,9 @@ export interface NetTransfer {
   amount: bigint;
   windowId: string;
   chain: "solana" | "base";
+  /** If "token-approval", settlement can use delegate authority to pull from the payer's ATA. */
+  authorizationType?: "none" | "balance-check" | "token-approval" | "eip-3009";
+  approvalTxSignature?: string;
 }
 
 export interface BatchSettlementResult {

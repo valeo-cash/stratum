@@ -104,6 +104,19 @@ export interface Receipt {
   facilitator_id: FacilitatorId;
   /** Client-supplied nonce used for idempotency derivation. */
   nonce: string;
+  /** How the payer's funds are secured for this payment. */
+  authorizationType?: "none" | "balance-check" | "token-approval" | "eip-3009";
+  /** Solana SPL Token approve() tx signature granting delegate authority. */
+  approvalTxSignature?: string;
+  /** EIP-3009 TransferWithAuthorization signature for Base USDC. */
+  eip3009Auth?: {
+    v: number;
+    r: string;
+    s: string;
+    validAfter: number;
+    validBefore: number;
+    nonce: string;
+  };
 }
 
 /** A receipt with an Ed25519 signature from the Stratum node. */

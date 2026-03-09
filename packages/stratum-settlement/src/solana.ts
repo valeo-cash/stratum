@@ -54,10 +54,15 @@ export class SolanaSettlement implements ChainSettlement {
 
       for (const t of chunk) {
         const destOwner = new PublicKey(t.to);
+        const useDelegateAuth = t.authorizationType === "token-approval";
+
+        const sourceOwner = useDelegateAuth
+          ? new PublicKey(t.from)
+          : this.settlementKeypair.publicKey;
 
         const sourceAta = await getAssociatedTokenAddress(
           this.usdcMint,
-          this.settlementKeypair.publicKey,
+          sourceOwner,
         );
         const destAta = await getAssociatedTokenAddress(
           this.usdcMint,
@@ -75,11 +80,14 @@ export class SolanaSettlement implements ChainSettlement {
           ),
         );
 
+        // When using delegate authority, the settlement keypair acts as the
+        // approved delegate on the agent's ATA. Otherwise it transfers from
+        // Stratum's own ATA as the owner.
         const ix = createTransferCheckedInstruction(
           sourceAta,
           this.usdcMint,
           destAta,
-          this.settlementKeypair.publicKey, // delegate authority
+          this.settlementKeypair.publicKey,
           t.amount,
           USDC_DECIMALS,
           [],
