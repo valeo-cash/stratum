@@ -4,8 +4,19 @@
 
 @import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&display=swap");
 
+@font-face {
+  font-family: "Quera";
+  src: url("/fonts/Quera.otf") format("opentype");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
 html {
   scroll-behavior: smooth;
+}
+
+h1, h2, h3 {
+  font-family: "Quera", var(--font-gcnorth), sans-serif;
 }
 
 html,

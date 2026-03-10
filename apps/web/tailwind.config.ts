@@ -21,6 +21,11 @@ const config: Config = {
           "Arial",
           "sans-serif",
         ],
+        headline: [
+          "Quera",
+          "var(--font-gcnorth)",
+          "sans-serif",
+        ],
       },
       colors: {
         ...stratumPreset.theme?.extend?.colors,
