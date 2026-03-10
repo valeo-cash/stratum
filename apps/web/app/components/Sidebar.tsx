@@ -30,7 +30,7 @@ export default function Sidebar() {
       <aside className="hidden lg:flex fixed left-0 top-0 bottom-0 w-[280px] flex-col bg-white  z-50">
         <div className="p-8">
           <Link href="/" className="flex items-center gap-3 mb-12">
-            <img src="/logos/stratumlogo.png" alt="Stratum" className="h-8 w-8 object-contain" />
+            <img src="/logos/stratumlogo.png" alt="Stratum" className="h-12 object-contain" />
           </Link>
 
           <nav className="flex flex-col gap-1">
