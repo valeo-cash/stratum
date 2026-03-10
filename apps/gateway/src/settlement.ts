@@ -366,72 +366,85 @@ export async function runSettlementCycle(): Promise<SignedWindowHead | null> {
 
               console.log(`[settlement] Confirmed tx hashes (${confirmedHashes.length}): ${confirmedHashes.map((h) => h.slice(0, 20)).join(", ") || "NONE"}`);
 
-              const allTxHashes = confirmedHashes.join(",");
-
-              await prisma.settlementBatch.update({
-                where: { id: dbBatch.id },
-                data: { status: "settled", txHashes: allTxHashes },
-              }).catch((e) => console.error("[settlement] Failed to update batch status:", e.message));
-
-              const settledNow = new Date();
               const settledWindowId = window.windowId as string;
-              const primaryTxHash = confirmedHashes[0] || null;
 
-              const perPayeeTxHash = new Map<string, string>();
-              for (const r of results) {
-                for (const t of r.transfers) {
-                  if (t.status === "confirmed" && t.txHash && t.txHash.length > 0) {
-                    perPayeeTxHash.set(t.to, t.txHash);
+              if (confirmedHashes.length === 0) {
+                console.warn(`[settlement] WARNING: No USDC transfers executed for window ${settledWindowId} — marking payments as failed`);
+
+                await prisma.settlementBatch.update({
+                  where: { id: dbBatch.id },
+                  data: { status: "failed", txHashes: "" },
+                }).catch((e) => console.error("[settlement] Failed to update batch status to failed:", e.message));
+
+                await prisma.intakePayment.updateMany({
+                  where: { windowId: settledWindowId, status: { in: ["queued", "batched"] } },
+                  data: { status: "failed", error: "Settlement execution returned 0 confirmed transfers" },
+                }).catch((e) => console.error("[settlement] Failed to mark intake payments as failed:", e.message));
+              } else {
+                const allTxHashes = confirmedHashes.join(",");
+
+                await prisma.settlementBatch.update({
+                  where: { id: dbBatch.id },
+                  data: { status: "settled", txHashes: allTxHashes },
+                }).catch((e) => console.error("[settlement] Failed to update batch status:", e.message));
+
+                const settledNow = new Date();
+
+                const perPayeeTxHash = new Map<string, string>();
+                for (const r of results) {
+                  for (const t of r.transfers) {
+                    if (t.status === "confirmed" && t.txHash && t.txHash.length > 0) {
+                      perPayeeTxHash.set(t.to, t.txHash);
+                    }
                   }
                 }
-              }
 
-              console.log(`[settlement] perPayeeTxHash map (${perPayeeTxHash.size} entries):`);
-              for (const [payee, hash] of perPayeeTxHash) {
-                console.log(`[settlement]   ${payee} => ${hash.slice(0, 24)}...`);
-              }
+                console.log(`[settlement] perPayeeTxHash map (${perPayeeTxHash.size} entries):`);
+                for (const [payee, hash] of perPayeeTxHash) {
+                  console.log(`[settlement]   ${payee} => ${hash.slice(0, 24)}...`);
+                }
 
-              const intakeCountBefore = await prisma.intakePayment.count({
-                where: { windowId: settledWindowId, status: { in: ["queued", "batched"] } },
-              }).catch(() => -1);
-              console.log(`[settlement] Intake payments pending update for window ${settledWindowId}: ${intakeCountBefore}`);
+                const intakeCountBefore = await prisma.intakePayment.count({
+                  where: { windowId: settledWindowId, status: { in: ["queued", "batched"] } },
+                }).catch(() => -1);
+                console.log(`[settlement] Intake payments pending update for window ${settledWindowId}: ${intakeCountBefore}`);
 
-              for (const [payee, hash] of perPayeeTxHash) {
-                console.log(`[settlement] Updating intake payments: windowId=${settledWindowId} to=${payee} txHash=${hash.slice(0, 24)}...`);
-                const updated = await prisma.intakePayment.updateMany({
-                  where: {
-                    windowId: settledWindowId,
-                    to: payee,
-                    status: { in: ["queued", "batched"] },
-                  },
-                  data: { status: "settled", txHash: hash, settledAt: settledNow },
-                }).catch((e) => {
-                  console.error("[settlement] Failed to update intake settled:", e.message);
-                  return { count: 0 };
-                });
-                console.log(`[settlement] Updated ${updated.count} intake payments with txHash for ${payee}`);
-              }
+                for (const [payee, hash] of perPayeeTxHash) {
+                  console.log(`[settlement] Updating intake payments: windowId=${settledWindowId} to=${payee} txHash=${hash.slice(0, 24)}...`);
+                  const updated = await prisma.intakePayment.updateMany({
+                    where: {
+                      windowId: settledWindowId,
+                      to: payee,
+                      status: { in: ["queued", "batched"] },
+                    },
+                    data: { status: "settled", txHash: hash, settledAt: settledNow },
+                  }).catch((e) => {
+                    console.error("[settlement] Failed to update intake settled:", e.message);
+                    return { count: 0 };
+                  });
+                  console.log(`[settlement] Updated ${updated.count} intake payments with txHash for ${payee}`);
+                }
 
-              for (const r of results) {
-                for (const t of r.transfers) {
-                  if (t.status === "failed" && !perPayeeTxHash.has(t.to)) {
-                    const failedUpdate = await prisma.intakePayment.updateMany({
-                      where: {
-                        windowId: settledWindowId,
-                        to: t.to,
-                        status: { in: ["queued", "batched"] },
-                      },
-                      data: { status: "failed", error: t.error ?? "Transfer failed" },
-                    }).catch((e) => {
-                      console.error("[settlement] Failed to update intake failed:", e.message);
-                      return { count: 0 };
-                    });
-                    console.log(`[settlement] Marked ${failedUpdate.count} intake payments as failed for ${t.to}`);
+                for (const r of results) {
+                  for (const t of r.transfers) {
+                    if (t.status === "failed" && !perPayeeTxHash.has(t.to)) {
+                      const failedUpdate = await prisma.intakePayment.updateMany({
+                        where: {
+                          windowId: settledWindowId,
+                          to: t.to,
+                          status: { in: ["queued", "batched"] },
+                        },
+                        data: { status: "failed", error: t.error ?? "Transfer failed" },
+                      }).catch((e) => {
+                        console.error("[settlement] Failed to update intake failed:", e.message);
+                        return { count: 0 };
+                      });
+                      console.log(`[settlement] Marked ${failedUpdate.count} intake payments as failed for ${t.to}`);
+                    }
                   }
                 }
-              }
 
-              if (primaryTxHash) {
+                const primaryTxHash = confirmedHashes[0];
                 const remaining = await prisma.intakePayment.updateMany({
                   where: {
                     windowId: settledWindowId,
@@ -445,12 +458,12 @@ export async function runSettlementCycle(): Promise<SignedWindowHead | null> {
                 if (remaining.count > 0) {
                   console.log(`[settlement] Catch-all updated ${remaining.count} remaining intake payments with tx ${primaryTxHash.slice(0, 24)}...`);
                 }
-              }
 
-              const intakeCountAfter = await prisma.intakePayment.count({
-                where: { windowId: settledWindowId, status: { in: ["queued", "batched"] } },
-              }).catch(() => -1);
-              console.log(`[settlement] Intake payments still pending after updates: ${intakeCountAfter}`);
+                const intakeCountAfter = await prisma.intakePayment.count({
+                  where: { windowId: settledWindowId, status: { in: ["queued", "batched"] } },
+                }).catch(() => -1);
+                console.log(`[settlement] Intake payments still pending after updates: ${intakeCountAfter}`);
+              }
             }
           } catch (err) {
             console.error("[settlement] Real settlement failed, continuing with anchor:", err);
