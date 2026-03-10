@@ -206,7 +206,9 @@ export default async function settleIntakeRoutes(fastify: FastifyInstance) {
       if (batch) {
         if (batch.status === "settled") {
           resolvedStatus = "settled";
-          txHash = batch.txHashes ?? batch.anchorTxHash ?? null;
+          txHash = (batch.txHashes && batch.txHashes.length > 0 ? batch.txHashes.split(",")[0] : null)
+            || batch.anchorTxHash
+            || null;
           settledAt = new Date();
           prisma.intakePayment.update({
             where: { id: payment.id },
@@ -308,7 +310,9 @@ export default async function settleIntakeRoutes(fastify: FastifyInstance) {
       if (batch) {
         if (batch.status === "settled" && resolvedStatus !== "settled") {
           resolvedStatus = "settled";
-          txHash = batch.txHashes ?? batch.anchorTxHash ?? null;
+          txHash = (batch.txHashes && batch.txHashes.length > 0 ? batch.txHashes.split(",")[0] : null)
+            || batch.anchorTxHash
+            || null;
         } else if (batch.status === "webhook_sent" || batch.status === "pending") {
           resolvedStatus = "batched";
         }

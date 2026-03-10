@@ -359,34 +359,70 @@ export async function runSettlementCycle(): Promise<SignedWindowHead | null> {
             console.log(`[settlement] Settled ${solCount + baseCount} transfers on ${parts.join(" + ")}, total $${totalUSDC} USDC`);
 
             if (dbBatch) {
-              const allTxHashes = results.flatMap((r) => r.txHashes).join(",");
-              prisma.settlementBatch.update({
+              const confirmedHashes = results
+                .flatMap((r) => r.transfers.filter((t) => t.status === "confirmed").map((t) => t.txHash))
+                .filter((h) => h && h.length > 0);
+              const allTxHashes = confirmedHashes.join(",");
+
+              await prisma.settlementBatch.update({
                 where: { id: dbBatch.id },
                 data: { status: "settled", txHashes: allTxHashes },
               }).catch((e) => console.error("[settlement] Failed to update batch status:", e.message));
 
               const settledNow = new Date();
+              const settledWindowId = window.windowId as string;
+              const primaryTxHash = confirmedHashes[0] || null;
+
+              const perPayeeTxHash = new Map<string, string>();
               for (const r of results) {
                 for (const t of r.transfers) {
-                  if (t.status === "confirmed") {
-                    prisma.intakePayment.updateMany({
+                  if (t.status === "confirmed" && t.txHash) {
+                    perPayeeTxHash.set(t.to, t.txHash);
+                  }
+                }
+              }
+
+              for (const [payee, hash] of perPayeeTxHash) {
+                await prisma.intakePayment.updateMany({
+                  where: {
+                    windowId: settledWindowId,
+                    to: payee,
+                    status: { in: ["queued", "batched"] },
+                  },
+                  data: { status: "settled", txHash: hash, settledAt: settledNow },
+                }).catch((e) => console.error("[settlement] Failed to update intake settled:", e.message));
+              }
+
+              const failedPayees = new Set<string>();
+              for (const r of results) {
+                for (const t of r.transfers) {
+                  if (t.status === "failed" && !perPayeeTxHash.has(t.to)) {
+                    failedPayees.add(t.to);
+                    await prisma.intakePayment.updateMany({
                       where: {
-                        windowId: window.windowId as string,
-                        to: t.to,
-                        status: { in: ["queued", "batched"] },
-                      },
-                      data: { status: "settled", txHash: t.txHash, settledAt: settledNow },
-                    }).catch((e) => console.error("[settlement] Failed to update intake settled:", e.message));
-                  } else {
-                    prisma.intakePayment.updateMany({
-                      where: {
-                        windowId: window.windowId as string,
+                        windowId: settledWindowId,
                         to: t.to,
                         status: { in: ["queued", "batched"] },
                       },
                       data: { status: "failed", error: t.error ?? "Transfer failed" },
                     }).catch((e) => console.error("[settlement] Failed to update intake failed:", e.message));
                   }
+                }
+              }
+
+              if (primaryTxHash) {
+                const remaining = await prisma.intakePayment.updateMany({
+                  where: {
+                    windowId: settledWindowId,
+                    status: { in: ["queued", "batched"] },
+                  },
+                  data: { status: "settled", txHash: primaryTxHash, settledAt: settledNow },
+                }).catch((e) => {
+                  console.error("[settlement] Failed to update remaining intake payments:", e.message);
+                  return { count: 0 };
+                });
+                if (remaining.count > 0) {
+                  console.log(`[settlement] Catch-all updated ${remaining.count} remaining intake payments with tx ${primaryTxHash.slice(0, 16)}...`);
                 }
               }
             }
