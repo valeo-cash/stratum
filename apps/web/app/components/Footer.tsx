@@ -26,9 +26,7 @@ export default function Footer() {
 
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pt-8">
           <div className="flex items-center gap-3">
-            <div className="w-6 h-6 rounded bg-[#3B82F6] flex items-center justify-center">
-              <span className="text-white font-bold text-[10px]">S</span>
-            </div>
+            <img src="/logos/stratumlogo.png" alt="Stratum" className="h-6 object-contain" />
             <span className="text-sm text-[#9CA3AF]">Built by Valeo &middot; Lisbon</span>
           </div>
           <p className="text-xs text-[#D1D5DB]">&copy; {new Date().getFullYear()} Valeo Protocol. All rights reserved.</p>

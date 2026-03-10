@@ -107,10 +107,7 @@ export default function Sidebar() {
       <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-xl ">
         <div className="flex items-center justify-between h-14 px-5">
           <Link href="/" className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-none bg-[#3B82F6] flex items-center justify-center">
-              <span className="text-white font-bold text-xs">S</span>
-            </div>
-            <span className="text-sm font-medium text-[#0A0A0A]">Stratum</span>
+            <img src="/logos/stratumlogo.png" alt="Stratum" className="h-8 object-contain" />
           </Link>
 
           <button

@@ -50,11 +50,9 @@ export default function ConsoleSidebar() {
       >
         <div className="p-6 flex-1">
           <Link href="/console" className="flex items-center gap-3 mb-10">
-            <div className="w-8 h-8 rounded-none bg-[#003FFF] flex items-center justify-center">
-              <span className="text-white font-bold text-sm">S</span>
-            </div>
+            <img src="/logos/stratumlogo.png" alt="Stratum" className="h-8 object-contain" />
             <span className="text-[15px] font-medium text-[#0A0A0A]">
-              Stratum Console
+              Console
             </span>
           </Link>
 

@@ -14,10 +14,8 @@ export default function ExplorerLayout({
     <>
       <header className="px-6 lg:px-12 py-5 flex items-center justify-between max-w-[1000px] mx-auto">
         <Link href="/explorer" className="flex items-center gap-3">
-          <div className="w-7 h-7 rounded-none bg-[#003FFF] flex items-center justify-center">
-            <span className="text-white font-bold text-xs">S</span>
-          </div>
-          <span className="text-[14px] font-medium text-[#0A0A0A]">Stratum Explorer</span>
+          <img src="/logos/stratumlogo.png" alt="Stratum" className="h-8 object-contain" />
+          <span className="text-[14px] font-medium text-[#0A0A0A]">Explorer</span>
         </Link>
         <Link
           href="/"
