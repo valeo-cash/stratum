@@ -170,13 +170,31 @@ export default function FacilitatorDocsPage() {
           <Code>{`const { Stratum } = require('@v402valeo/facilitator');
 const stratum = new Stratum({ apiKey: 'sk_live_...' });
 
+// Solana payment:
 await stratum.submit({
   from: 'agent_wallet_address',
   to: 'service_wallet_address',
   amount: '5000',
   chain: 'solana',
   reference: 'payment-001'
+});
+
+// Base payment (EVM addresses):
+await stratum.submit({
+  from: '0x4df375e577825ae021c1b44ba94F8CD84E59750c',
+  to: '0xECa8FFA1134fda5e4042E25740DC02701d8Ed738',
+  amount: '10000',
+  chain: 'base',
+  reference: 'payment-002'
 });`}</Code>
+
+          <SubTitle>Batch Submit (mixed chains)</SubTitle>
+          <Code>{`// Submit multiple payments across both chains in one call:
+await stratum.submitBatch([
+  { from: '4QWY4...', to: 'FjeQfz...', amount: '5000', chain: 'solana', reference: 'sol-001' },
+  { from: '0x4df3...', to: '0xECa8...', amount: '10000', chain: 'base', reference: 'base-001' },
+]);
+// Up to 500 payments per call. Chains can be mixed freely.`}</Code>
 
           <SubTitle>
             <span className="flex items-center">
@@ -239,6 +257,11 @@ console.log(result.txHash);  // '4PxAjvFrj...'`}</Code>
                   path="/v1/analytics"
                   desc="Public stats"
                 />
+                <EndpointRow
+                  method="GET"
+                  path="/v1/settle/reconciliation"
+                  desc="On-chain verification stats (admin)"
+                />
               </tbody>
             </table>
           </div>
@@ -300,8 +323,11 @@ X-API-KEY: sk_live_your_key
                   <th className="py-3 pr-4 text-xs font-mono text-[#9CA3AF] uppercase tracking-wider">
                     Asset
                   </th>
+                  <th className="py-3 pr-4 text-xs font-mono text-[#9CA3AF] uppercase tracking-wider">
+                    Settlement
+                  </th>
                   <th className="py-3 text-xs font-mono text-[#9CA3AF] uppercase tracking-wider">
-                    Transfer Method
+                    Network
                   </th>
                 </tr>
               </thead>
@@ -311,8 +337,11 @@ X-API-KEY: sk_live_your_key
                     Solana
                   </td>
                   <td className="py-3 pr-4 text-sm text-[#6B7280]">USDC</td>
-                  <td className="py-3 text-sm font-mono text-[#374151]">
+                  <td className="py-3 pr-4 text-sm font-mono text-[#374151]">
                     SPL Token transferChecked
+                  </td>
+                  <td className="py-3 text-sm text-[#0A0A0A] font-medium">
+                    Mainnet
                   </td>
                 </tr>
                 <tr className="border-b border-[#E5E7EB]">
@@ -320,8 +349,11 @@ X-API-KEY: sk_live_your_key
                     Base
                   </td>
                   <td className="py-3 pr-4 text-sm text-[#6B7280]">USDC</td>
-                  <td className="py-3 text-sm font-mono text-[#374151]">
+                  <td className="py-3 pr-4 text-sm font-mono text-[#374151]">
                     ERC-20 transfer
+                  </td>
+                  <td className="py-3 text-sm text-[#0A0A0A] font-medium">
+                    Mainnet
                   </td>
                 </tr>
               </tbody>
@@ -366,6 +398,67 @@ X-API-KEY: sk_live_your_key
             <li>Monitors settlement wallet balance</li>
             <li>Recovers queued payments after restart</li>
           </ol>
+
+          {/* Limits & Safety */}
+          <SectionTitle id="limits">Limits &amp; Safety</SectionTitle>
+          <div className="overflow-x-auto mb-8">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b border-[#E5E7EB]">
+                  <th className="py-3 pr-4 text-xs font-mono text-[#9CA3AF] uppercase tracking-wider">
+                    Limit
+                  </th>
+                  <th className="py-3 pr-4 text-xs font-mono text-[#9CA3AF] uppercase tracking-wider">
+                    Default
+                  </th>
+                  <th className="py-3 text-xs font-mono text-[#9CA3AF] uppercase tracking-wider">
+                    What happens
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ["Max single payment", "$1,000", "Rejected instantly"],
+                  ["Max per window (60s)", "$10,000", "Deferred to next window"],
+                  ["Max daily per API key", "$50,000", "Rejected until next day"],
+                  ["Rate limit", "100/min per key", "429 with retry-after"],
+                  ["Duplicate reference", "Idempotent", "Returns existing payment"],
+                ].map(([limit, def, what]) => (
+                  <tr key={limit} className="border-b border-[#E5E7EB]">
+                    <td className="py-3 pr-4 text-sm text-[#0A0A0A] font-medium">{limit}</td>
+                    <td className="py-3 pr-4 text-sm font-mono text-[#374151]">{def}</td>
+                    <td className="py-3 text-sm text-[#6B7280]">{what}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Verifying On-Chain */}
+          <SectionTitle id="verify">Verifying On-Chain</SectionTitle>
+          <P>
+            Every settled payment includes a <InlineCode>txHash</InlineCode>. Verify
+            it independently:
+          </P>
+          <div className="rounded-none border border-[#E5E7EB] bg-[#FAFAFA] p-6 mb-6 space-y-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-[#6B7280]">Solana</span>
+              <span className="font-mono text-[#3B82F6]">
+                https://solscan.io/tx/&#123;txHash&#125;
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-[#6B7280]">Base</span>
+              <span className="font-mono text-[#3B82F6]">
+                https://basescan.org/tx/&#123;txHash&#125;
+              </span>
+            </div>
+          </div>
+          <P>
+            Stratum also runs automatic post-settlement reconciliation every 5 minutes,
+            verifying every settled transaction on-chain. Check reconciliation stats
+            at <InlineCode>GET /v1/settle/reconciliation</InlineCode>.
+          </P>
 
           {/* Sellers */}
           <SectionTitle id="sellers">For Sellers / API Providers</SectionTitle>
@@ -416,25 +509,53 @@ X-API-KEY: sk_live_your_key
             Your facilitator handles the rest.
           </P>
 
+          {/* Complete Integration Example */}
+          <SectionTitle id="example">Complete Integration Example</SectionTitle>
+          <P>
+            Here&apos;s the full middleware pattern &mdash; add this to your existing
+            x402 payment handler:
+          </P>
+          <Code>{`const { Stratum } = require('@v402valeo/facilitator');
+const stratum = new Stratum({ apiKey: 'sk_live_YOUR_KEY' });
+
+app.use(async (req, res, next) => {
+  const payment = req.headers['x-payment'];
+  if (!payment) return res.status(402).json({ error: 'Payment required' });
+
+  const verified = await verifyX402Payment(payment);
+  if (!verified.valid) return res.status(402).json({ error: 'Invalid payment' });
+
+  await stratum.submit({
+    from: verified.agentWallet,
+    to: verified.serviceWallet,
+    amount: verified.amount,
+    chain: verified.chain,
+    reference: verified.paymentId
+  });
+
+  next();
+});`}</Code>
+          <P>
+            That&apos;s 7 lines added to your existing middleware. Everything after{" "}
+            <InlineCode>stratum.submit()</InlineCode> is automatic &mdash; netting,
+            settlement, Merkle anchoring, status tracking.
+          </P>
+
           {/* Testing */}
           <SectionTitle id="testing">Testing</SectionTitle>
           <P>
-            Use Solana Devnet or Base Sepolia for integration testing.
-            Request a test API key at{" "}
+            Generate a test API key at{" "}
             <Link href="/facilitators" className="text-[#3B82F6] hover:underline">
               stratumx402.com/facilitators
             </Link>
-            .
-          </P>
-          <P>
-            Check settlement status at{" "}
+            . Check settlement status at{" "}
             <a
               href="https://stratumx402.com/console"
               className="text-[#3B82F6] hover:underline"
             >
               stratumx402.com/console
             </a>{" "}
-            or via the{" "}
+            or the{" "}
             <a
               href="https://stratumx402.com/explorer"
               className="text-[#3B82F6] hover:underline"

@@ -6,12 +6,14 @@ const sections = [
   { id: "overview", label: "Overview" },
   { id: "authentication", label: "Authentication" },
   { id: "quickstart", label: "Quick Start" },
-  { id: "how-it-works", label: "How It Works" },
   { id: "api", label: "API Reference" },
   { id: "config", label: "Configuration" },
-  { id: "limits", label: "Rate Limits" },
+  { id: "automatic", label: "What Stratum Does" },
+  { id: "limits", label: "Limits & Safety" },
+  { id: "verify", label: "Verifying On-Chain" },
+  { id: "sellers", label: "For Sellers" },
+  { id: "example", label: "Integration Example" },
   { id: "testing", label: "Testing" },
-  { id: "advanced", label: "Advanced" },
 ];
 
 export default function FacilitatorDocsSidebar() {
