@@ -28,11 +28,55 @@ interface PaymentInput {
 
 let intakeSeq = 0;
 
+const SETTLE_RATE_LIMIT = parseInt(process.env.SETTLE_RATE_LIMIT || "100", 10);
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+
+function checkRateLimit(apiKeyId: string): { allowed: boolean; limit: number; remaining: number; resetAt: number } {
+  const now = Date.now();
+  let entry = rateLimitMap.get(apiKeyId);
+
+  if (!entry || now >= entry.resetAt) {
+    entry = { count: 0, resetAt: now + 60_000 };
+    rateLimitMap.set(apiKeyId, entry);
+  }
+
+  entry.count++;
+  const remaining = Math.max(0, SETTLE_RATE_LIMIT - entry.count);
+
+  return {
+    allowed: entry.count <= SETTLE_RATE_LIMIT,
+    limit: SETTLE_RATE_LIMIT,
+    remaining,
+    resetAt: entry.resetAt,
+  };
+}
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of rateLimitMap) {
+    if (now >= entry.resetAt) rateLimitMap.delete(key);
+  }
+}, 60_000).unref();
+
 export default async function settleIntakeRoutes(fastify: FastifyInstance) {
 
   fastify.post("/v1/settle/submit", { preHandler: facilitatorGuard }, async (request, reply) => {
     const body = request.body as PaymentInput & { payments?: PaymentInput[] };
     const apiKeyId = request.apiKeyId || "__unknown__";
+
+    const rl = checkRateLimit(apiKeyId);
+    reply.header("X-RateLimit-Limit", rl.limit);
+    reply.header("X-RateLimit-Remaining", rl.remaining);
+    reply.header("X-RateLimit-Reset", Math.ceil(rl.resetAt / 1000));
+
+    if (!rl.allowed) {
+      const retryAfter = Math.ceil((rl.resetAt - Date.now()) / 1000);
+      reply.header("Retry-After", retryAfter);
+      return reply.status(429).send({
+        error: "rate_limit_exceeded",
+        retryAfter,
+      });
+    }
 
     let payments: PaymentInput[];
     if (body.payments && Array.isArray(body.payments)) {
@@ -111,6 +155,22 @@ export default async function settleIntakeRoutes(fastify: FastifyInstance) {
         }
       }
 
+      if (p.reference) {
+        const existing = await prisma.intakePayment.findUnique({
+          where: { apiKeyId_reference: { apiKeyId: facilitatorId, reference: p.reference } },
+        });
+        if (existing) {
+          results.push({
+            reference: p.reference,
+            status: existing.status as "queued" | "rejected",
+            receiptId: existing.receiptId || "",
+            duplicate: true,
+          } as any);
+          accepted++;
+          continue;
+        }
+      }
+
       const seq = ++intakeSeq;
       const receiptId = createReceiptId(`rcpt-${Date.now().toString(36)}-i${seq}`);
       const nonce = `intake-${Date.now()}-${seq}`;
@@ -147,20 +207,37 @@ export default async function settleIntakeRoutes(fastify: FastifyInstance) {
       }
 
       if (p.reference) {
-        prisma.intakePayment.create({
-          data: {
-            reference: p.reference,
-            apiKeyId: facilitatorId,
-            receiptId: receiptId as string,
-            windowId: windowInfo.windowId,
-            from: p.from,
-            to: p.to,
-            amount: p.amount,
-            chain,
-            status: "queued",
-            metadata: p.metadata ? JSON.stringify(p.metadata) : null,
-          },
-        }).catch((e) => console.error("[settle-intake] DB write failed:", e.message));
+        try {
+          await prisma.intakePayment.create({
+            data: {
+              reference: p.reference,
+              apiKeyId: facilitatorId,
+              receiptId: receiptId as string,
+              windowId: windowInfo.windowId,
+              from: p.from,
+              to: p.to,
+              amount: p.amount,
+              chain,
+              status: "queued",
+              metadata: p.metadata ? JSON.stringify(p.metadata) : null,
+            },
+          });
+        } catch (err: any) {
+          if (err?.code === "P2002") {
+            const dup = await prisma.intakePayment.findFirst({
+              where: { apiKeyId: facilitatorId, reference: p.reference },
+            });
+            results.push({
+              reference: p.reference,
+              status: dup?.status || "queued",
+              receiptId: dup?.receiptId || receiptId as string,
+              duplicate: true,
+            } as any);
+            accepted++;
+            continue;
+          }
+          console.error("[settle-intake] DB write failed:", err.message);
+        }
       }
 
       results.push({

@@ -383,21 +383,24 @@ export async function runSettlementCycle(): Promise<SignedWindowHead | null> {
               }
 
               for (const [payee, hash] of perPayeeTxHash) {
-                await prisma.intakePayment.updateMany({
+                console.log(`[settlement] Writing txHash ${hash.slice(0, 20)}... to intake payments for window ${settledWindowId} to ${payee.slice(0, 12)}...`);
+                const updated = await prisma.intakePayment.updateMany({
                   where: {
                     windowId: settledWindowId,
                     to: payee,
                     status: { in: ["queued", "batched"] },
                   },
                   data: { status: "settled", txHash: hash, settledAt: settledNow },
-                }).catch((e) => console.error("[settlement] Failed to update intake settled:", e.message));
+                }).catch((e) => {
+                  console.error("[settlement] Failed to update intake settled:", e.message);
+                  return { count: 0 };
+                });
+                console.log(`[settlement] Updated ${updated.count} intake payments with txHash for ${payee.slice(0, 12)}...`);
               }
 
-              const failedPayees = new Set<string>();
               for (const r of results) {
                 for (const t of r.transfers) {
                   if (t.status === "failed" && !perPayeeTxHash.has(t.to)) {
-                    failedPayees.add(t.to);
                     await prisma.intakePayment.updateMany({
                       where: {
                         windowId: settledWindowId,
@@ -422,7 +425,7 @@ export async function runSettlementCycle(): Promise<SignedWindowHead | null> {
                   return { count: 0 };
                 });
                 if (remaining.count > 0) {
-                  console.log(`[settlement] Catch-all updated ${remaining.count} remaining intake payments with tx ${primaryTxHash.slice(0, 16)}...`);
+                  console.log(`[settlement] Catch-all updated ${remaining.count} remaining intake payments with tx ${primaryTxHash.slice(0, 20)}...`);
                 }
               }
             }

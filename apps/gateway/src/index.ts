@@ -22,6 +22,7 @@ import { Connection } from "@solana/web3.js";
 import { getTeeStatus } from "./tee";
 import { getReceiptStoreInstance } from "./receipt-store";
 import { isRedisConnected } from "./redis";
+import { startBalanceMonitor, stopBalanceMonitor, getSettlementBalance } from "./balance-monitor";
 
 const server = Fastify({ logger: true });
 
@@ -76,6 +77,7 @@ server.get("/health", async () => {
     teeProvider: teeStatus.provider,
     receiptStore: store.backend,
     redisConnected: store.backend === "redis" ? isRedisConnected() : undefined,
+    settlementBalance: getSettlementBalance(),
   };
 });
 
@@ -108,6 +110,7 @@ async function gracefulShutdown(signal: string) {
   console.log(`\n[gateway] Received ${signal}, shutting down gracefully...`);
 
   stopSettlementLoop();
+  stopBalanceMonitor();
 
   await persistCurrentWindow();
 
@@ -125,12 +128,37 @@ async function gracefulShutdown(signal: string) {
 process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
 process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 
+async function recoverOrphanedPayments() {
+  try {
+    const orphaned = await prisma.intakePayment.findMany({
+      where: { status: { in: ["queued", "batched"] } },
+    });
+
+    if (orphaned.length === 0) return;
+
+    console.log(`[recovery] Found ${orphaned.length} orphaned payments from previous session`);
+
+    const windowInfo = getCurrentWindowInfo();
+
+    const updated = await prisma.intakePayment.updateMany({
+      where: { status: { in: ["queued", "batched"] } },
+      data: { status: "queued", windowId: windowInfo.windowId, batchId: null },
+    });
+
+    console.log(`[recovery] Re-queued ${updated.count} payments into window ${windowInfo.windowId}`);
+  } catch (err: any) {
+    console.error("[recovery] Failed to recover orphaned payments:", err.message);
+  }
+}
+
 const start = async () => {
   try {
     await initGatewayKeypair();
     await loadServicesFromDb();
     await retryPendingWindows();
+    await recoverOrphanedPayments();
     startSettlementLoop();
+    startBalanceMonitor();
 
     if (process.env.ENABLE_SIMULATOR === "true") {
       const { startSimulator } = await import("./simulator");
