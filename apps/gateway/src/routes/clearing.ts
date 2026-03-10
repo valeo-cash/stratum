@@ -9,7 +9,7 @@ import {
   CURRENT_RECEIPT_VERSION,
   type Receipt,
 } from "@valeo/stratum-core";
-import { getReceiptStore, getFinalizedWindows, getCurrentWindowInfo, submitReceipt } from "../settlement";
+import { getReceiptStoreRef, getFinalizedWindows, getCurrentWindowInfo, submitReceipt } from "../settlement";
 import { toHex, getGatewayPrivateKey, verifyPaymentSignature } from "../crypto";
 import { prisma } from "../db";
 import { getTeeAttestation, getTeeStatus, debugTeeSocket } from "../tee";
@@ -193,21 +193,23 @@ export default async function clearingRoutes(fastify: FastifyInstance) {
   });
 
   fastify.get("/v1/status", async () => {
-    const receipts = getReceiptStore();
+    const store = getReceiptStoreRef();
+    const allReceipts = await store.getAllReceipts();
     const windows = getFinalizedWindows();
     return {
-      totalReceipts: receipts.length,
+      totalReceipts: allReceipts.length,
       windowsFinalized: windows.length,
-      receiptCount: receipts.length,
+      receiptCount: allReceipts.length,
       timestamp: new Date().toISOString(),
     };
   });
 
   fastify.get("/v1/receipt/:id", async (request, reply) => {
     const { id } = request.params as { id: string };
-    const receipts = getReceiptStore();
+    const store = getReceiptStoreRef();
+    const allReceipts = await store.getAllReceipts();
 
-    const found = receipts.find(
+    const found = allReceipts.find(
       (sr) => sr.receipt.receipt_id === id || toHex(hashReceipt(sr)) === id,
     );
 
@@ -221,10 +223,13 @@ export default async function clearingRoutes(fastify: FastifyInstance) {
       limit?: string;
     };
 
-    let results = getReceiptStore();
+    const store = getReceiptStoreRef();
+    let results: import("@valeo/stratum-core").SignedReceipt[];
 
     if (windowId) {
-      results = results.filter((sr) => (sr.receipt.window_id as string) === windowId);
+      results = await store.getReceipts(windowId);
+    } else {
+      results = await store.getAllReceipts();
     }
 
     const cap = Math.min(parseInt(limit || "100", 10), 1000);
@@ -236,10 +241,12 @@ export default async function clearingRoutes(fastify: FastifyInstance) {
     const latest = windows[windows.length - 1];
 
     if (!latest) {
+      const store = getReceiptStoreRef();
+      const allReceipts = await store.getAllReceipts();
       return {
         id: "none",
         state: "OPEN",
-        receiptCount: getReceiptStore().length,
+        receiptCount: allReceipts.length,
         openedAt: new Date().toISOString(),
       };
     }
@@ -264,14 +271,15 @@ export default async function clearingRoutes(fastify: FastifyInstance) {
   fastify.get("/v1/window/current", async () => {
     const current = getCurrentWindowInfo();
     const windows = getFinalizedWindows();
-    const receipts = getReceiptStore();
+    const store = getReceiptStoreRef();
+    const allReceipts = await store.getAllReceipts();
 
     let totalVolume = 0n;
-    for (const r of receipts) totalVolume += r.receipt.amount;
+    for (const r of allReceipts) totalVolume += r.receipt.amount;
 
     return {
       currentWindow: current,
-      totalReceipts: receipts.length,
+      totalReceipts: allReceipts.length,
       totalVolume: totalVolume.toString(),
       totalVolumeUSDC: Number(totalVolume) / 1_000_000,
       windowsFinalized: windows.length,

@@ -25,7 +25,8 @@
     "@valeo/stratum-settlement": "workspace:*",
     "bs58": "^6",
     "fastify": "^5",
-    "fastify-plugin": "^5"
+    "fastify-plugin": "^5",
+    "ioredis": "^5.10.0"
   },
   "devDependencies": {
     "@types/node": "^20",

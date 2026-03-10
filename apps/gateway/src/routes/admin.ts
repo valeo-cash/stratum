@@ -1,6 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { registerService, listServices, getService, removeService } from "../registry";
-import { getReceiptStore, getFinalizedWindows, getCurrentWindowInfo } from "../settlement";
+import { getReceiptStoreRef, getFinalizedWindows, getCurrentWindowInfo } from "../settlement";
 import { toHex } from "../crypto";
 import { generateApiKey, listApiKeys, revokeApiKey } from "../auth";
 import { requireRole } from "../middleware/auth";
@@ -10,16 +10,17 @@ const adminOnlyGuard = requireRole("admin");
 
 export default async function adminRoutes(fastify: FastifyInstance) {
   fastify.get("/admin/stats", { preHandler: adminGuard }, async () => {
-    const receipts = getReceiptStore();
+    const store = getReceiptStoreRef();
+    const allReceipts = await store.getAllReceipts();
     const windows = getFinalizedWindows();
     const services = listServices();
     const current = getCurrentWindowInfo();
 
     let totalVolume = 0n;
-    for (const r of receipts) totalVolume += r.receipt.amount;
+    for (const r of allReceipts) totalVolume += r.receipt.amount;
 
     return {
-      totalReceipts: receipts.length,
+      totalReceipts: allReceipts.length,
       totalVolume: totalVolume.toString(),
       totalVolumeUSDC: Number(totalVolume) / 1_000_000,
       activeServices: services.length,

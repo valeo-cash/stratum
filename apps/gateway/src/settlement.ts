@@ -23,6 +23,7 @@ import { getGatewayPrivateKey, getGatewayPublicKey, toHex } from "./crypto";
 import { listServices } from "./registry";
 import { prisma } from "./db";
 import { notifyFacilitators, getActiveFacilitatorId } from "./webhook";
+import { createReceiptStore, getReceiptStoreInstance, type ReceiptStore } from "./receipt-store";
 
 const config: StratumConfig = {
   version: 1,
@@ -90,6 +91,7 @@ function createSettlementRouter(): SettlementRouter | null {
 
 const anchor = createAnchor();
 const settlementRouter = createSettlementRouter();
+const receiptStore = createReceiptStore();
 
 export function getSettlementRouter(): SettlementRouter | null {
   return settlementRouter;
@@ -99,7 +101,6 @@ export function getAnchor(): ChainAnchor {
   return anchor;
 }
 
-const allReceipts: SignedReceipt[] = [];
 const finalizedWindows: Array<{
   windowId: string;
   head: SignedWindowHead;
@@ -119,7 +120,10 @@ export function getLastSettlementTime(): Date | null {
 }
 
 export function submitReceipt(signed: SignedReceipt) {
-  allReceipts.push(signed);
+  const windowId = (signed.receipt.window_id as string) || "pending";
+  receiptStore.addReceipt(windowId, signed).catch((e) =>
+    console.error("[settlement] Receipt store write failed:", e.message ?? e),
+  );
   const result = manager.submitReceipt(signed);
 
   prisma.gatewayReceipt.create({
@@ -142,8 +146,8 @@ export function submitReceipt(signed: SignedReceipt) {
   return result;
 }
 
-export function getReceiptStore(): SignedReceipt[] {
-  return allReceipts;
+export function getReceiptStoreRef(): ReceiptStore {
+  return receiptStore;
 }
 
 export function getFinalizedWindows() {
