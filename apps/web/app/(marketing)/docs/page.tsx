@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import Footer from "../../components/Footer";
 import DocsSidebar from "../../components/DocsSidebar";
 
 export const metadata: Metadata = {
   title: "Documentation — Valeo Stratum",
-  description: "Technical documentation for Valeo Stratum, the clearing layer for AI agent payments.",
+  description: "Technical documentation for Valeo Stratum, the clearing and settlement layer for x402 AI agent payments.",
 };
 
 function SectionTitle({ id, children }: { id: string; children: React.ReactNode }) {
@@ -45,12 +46,13 @@ function FieldRow({ name, type, desc }: { name: string; type: string; desc: stri
   );
 }
 
-function EndpointRow({ method, path, desc }: { method: string; path: string; desc: string }) {
+function EndpointRow({ method, path, auth, desc }: { method: string; path: string; auth: string; desc: string }) {
   const color = method === "GET" ? "text-[#10B981]" : method === "POST" ? "text-[#3B82F6]" : "text-[#D97706]";
   return (
     <tr className="border-b border-[#E5E7EB]">
       <td className={`py-3 pr-4 font-mono text-sm font-medium ${color}`}>{method}</td>
       <td className="py-3 pr-4 font-mono text-sm text-[#374151]">{path}</td>
+      <td className="py-3 pr-4 text-sm text-[#9CA3AF]">{auth}</td>
       <td className="py-3 text-sm text-[#6B7280]">{desc}</td>
     </tr>
   );
@@ -64,10 +66,13 @@ export default function DocsPage() {
           <DocsSidebar />
           <main className="flex-1 min-w-0 px-6 lg:px-12 py-10">
             <div className="max-w-3xl">
+
         <SectionTitle id="overview">Overview</SectionTitle>
         <P>
-          Valeo Stratum is a clearing and netting layer for x402 AI agent payments.
-          It is not a facilitator. It never touches money. It never settles payments on-chain. It never holds custody of anything.
+          Valeo Stratum is a clearing and settlement layer for x402 AI agent payments.
+          Facilitators submit verified payments to Stratum. Stratum batches them into
+          60-second windows, computes multilateral netting, and executes USDC settlements
+          on-chain automatically.
         </P>
         <P>
           Stratum solves the problem Stripe identified in their 2025 Annual Letter: current blockchains
@@ -77,102 +82,115 @@ export default function DocsPage() {
         </P>
 
         <SubTitle>What Stratum Does</SubTitle>
-        <P>Stratum does exactly three things:</P>
         <ol className="list-decimal list-inside text-[#6B7280] text-sm space-y-3 mb-6 pl-2">
           <li>
-            <strong className="text-[#0A0A0A]">Intercepts and defers.</strong> When an agent sends a payment,
-            Stratum records a signed receipt &mdash; a cryptographic IOU. The money has not moved.
+            <strong className="text-[#0A0A0A]">Accepts payment instructions.</strong> Facilitators submit verified x402 payments
+            via <InlineCode>POST /v1/settle/submit</InlineCode>. Stratum records each as a signed receipt.
           </li>
           <li>
-            <strong className="text-[#0A0A0A]">Nets.</strong> At settlement window close, Stratum computes net
-            positions across all counterparties. 1M bilateral IOUs collapse into a handful of net transfers.
+            <strong className="text-[#0A0A0A]">Batches and nets.</strong> Every 60 seconds, Stratum closes a settlement window
+            and computes multilateral netting across all counterparties. 10,000 bilateral payments collapse into ~50 net transfers.
           </li>
           <li>
-            <strong className="text-[#0A0A0A]">Instructs.</strong> Stratum sends settlement instructions to the
-            real facilitator (Coinbase, Circle, etc.). The facilitator executes the actual on-chain USDC transfers.
+            <strong className="text-[#0A0A0A]">Settles on-chain.</strong> Stratum executes USDC transfers on Solana and Base
+            from its own settlement wallet. Each payment is tracked with an on-chain txHash as proof.
+          </li>
+          <li>
+            <strong className="text-[#0A0A0A]">Anchors Merkle proofs.</strong> A Merkle root covering every receipt in the window
+            is anchored on Solana for public verifiability.
           </li>
         </ol>
 
-        <P>
-          Stratum separately anchors a Merkle root on-chain for auditability &mdash; but that is a data hash, not a payment.
-          This is the &ldquo;INSTRUCTING&rdquo; model: Stratum instructs facilitators, it never settles.
-        </P>
-
         <SectionTitle id="architecture">Architecture</SectionTitle>
         <P>The system flow:</P>
-        <Code>{`Agent → Stratum (clearing layer) → Facilitator (Coinbase/Circle) → Chain (Solana/Base)`}</Code>
+        <Code>{`Agent → Facilitator (verifies x402 payment) → Stratum (netting + settlement) → Chain (Solana/Base)`}</Code>
+        <P>
+          Stratum sits behind the facilitator, not in front of the agent. The facilitator verifies
+          the x402 payment (signature check, amount check, etc.), then submits it to Stratum for
+          batched settlement.
+        </P>
 
         <SubTitle>Core Components</SubTitle>
         <P>
-          <strong className="text-[#0A0A0A]">Stratum Gateway</strong> &mdash; A reverse proxy + clearing engine.
-          Service providers register their API, agents hit the proxied endpoint,
-          Stratum handles payment clearing automatically.
+          <strong className="text-[#0A0A0A]">Stratum Gateway</strong> &mdash; The clearing and settlement engine
+          at <InlineCode>gateway.stratumx402.com</InlineCode>. Accepts payment submissions, runs netting,
+          executes USDC transfers, and anchors Merkle roots.
         </P>
         <P>
-          <strong className="text-[#0A0A0A]">Receipt Ledger</strong> &mdash; An event-sourced double-entry ledger
-          that records every signed receipt within a settlement window. Provides idempotency, position tracking,
-          and window-scoped queries.
+          <strong className="text-[#0A0A0A]">Receipt Ledger</strong> &mdash; An event-sourced ledger
+          (Redis-backed or in-memory) that records every signed receipt within a settlement window.
+          Provides idempotency, position tracking, and window-scoped queries.
         </P>
         <P>
           <strong className="text-[#0A0A0A]">Netting Engine</strong> &mdash; Computes multilateral net positions
-          across all counterparties. Verifies the sum-to-zero invariant and produces a minimal set of settlement instructions.
+          across all counterparties. Verifies the sum-to-zero invariant and produces a minimal set of USDC transfers.
         </P>
         <P>
           <strong className="text-[#0A0A0A]">Merkle Tree</strong> &mdash; RFC 6962 compliant append-only tree.
-          Every receipt is hashed into a leaf. The root is anchored on-chain for public verifiability.
+          Every receipt is hashed into a leaf. The root is anchored on Solana for public verifiability.
         </P>
         <P>
-          <strong className="text-[#0A0A0A]">Write-Ahead Log</strong> &mdash; Ensures crash recovery.
-          Every mutation is logged before execution. Supports checkpoints and compaction.
+          <strong className="text-[#0A0A0A]">Settlement Executor</strong> &mdash; Executes USDC transfers on Solana
+          (SPL Token transferChecked) and Base (ERC-20 transfer) from Stratum&apos;s settlement wallet.
+          Creates destination token accounts automatically if they don&apos;t exist.
         </P>
 
         <SectionTitle id="integration">Integration Guide</SectionTitle>
 
-        <SubTitle>Tier 1: No Code (30 seconds)</SubTitle>
+        <SubTitle>For Facilitators (Primary Integration)</SubTitle>
+        <P>Facilitators verify x402 payments, then submit them to Stratum for batched settlement.</P>
         <ol className="list-decimal list-inside text-[#6B7280] text-sm space-y-2 mb-6 pl-2">
-          <li>Sign up at console.stratum.valeo.com</li>
-          <li>Paste your API URL</li>
-          <li>Set pricing per route (e.g., $0.002 per request)</li>
-          <li>Get your Stratum endpoint</li>
-          <li>Share the endpoint with agents &mdash; done</li>
+          <li>Get an API key at{" "}
+            <Link href="/facilitators" className="text-[#3B82F6] hover:underline">stratumx402.com/facilitators</Link>
+          </li>
+          <li>Install the SDK: <InlineCode>npm install @v402valeo/facilitator</InlineCode></li>
+          <li>Submit verified payments to Stratum</li>
+          <li>Query settlement status with on-chain txHash proof</li>
         </ol>
-        <P>Zero code. Zero blockchain knowledge. Stratum handles clearing, netting, and settlement automatically.</P>
+        <Code>{`const { Stratum } = require('@v402valeo/facilitator');
+const stratum = new Stratum({ apiKey: 'sk_live_...' });
 
-        <SubTitle>Tier 2: One Line (existing x402 services)</SubTitle>
-        <P>If you already use x402, change the facilitator URL to route through Stratum:</P>
-        <Code>{`// Before
-const paywall = createPaywall({
-  facilitatorUrl: 'https://x402.coinbase.com'
-})
-
-// After
-const paywall = createPaywall({
-  facilitatorUrl: 'https://stratum.valeo.com/v1/facilitate'
-})`}</Code>
-        <P>
-          Same facilitator settles. Stratum clears the traffic first, reducing on-chain load by orders of magnitude.
-        </P>
-
-        <SubTitle>Tier 3: Full SDK (self-hosting)</SubTitle>
-        <Code>{`import { StratumGateway } from '@valeo/stratum'
-
-const gateway = new StratumGateway({
-  facilitator: 'https://x402.coinbase.com',
-  settlementWindow: '5m',
+// After you verify an x402 payment, submit it to Stratum:
+await stratum.submit({
+  from: 'agent_wallet_address',
+  to: 'service_wallet_address',
+  amount: '5000',  // micro-USDC ($0.005)
   chain: 'solana',
-  asset: 'USDC',
-})
+  reference: 'your-internal-id'
+});
 
-app.use('/api', gateway.middleware())`}</Code>
+// Check settlement status:
+const status = await stratum.status('your-internal-id');
+// { status: 'settled', txHash: '4PxAjv...', settledAt: '...' }`}</Code>
+
+        <SubTitle>For Sellers / API Providers</SubTitle>
+        <P>Sellers register their service and receive USDC automatically. No code changes needed.</P>
+        <ol className="list-decimal list-inside text-[#6B7280] text-sm space-y-2 mb-6 pl-2">
+          <li>Get an API key at{" "}
+            <Link href="/facilitators" className="text-[#3B82F6] hover:underline">stratumx402.com/facilitators</Link>
+          </li>
+          <li>Register your service with a wallet address</li>
+          <li>USDC arrives every 60 seconds</li>
+        </ol>
+        <Code>{`POST https://gateway.stratumx402.com/admin/services
+Content-Type: application/json
+X-API-KEY: sk_live_your_key
+
+{
+  "slug": "my-api",
+  "name": "My API",
+  "walletAddress": "your_solana_wallet_address",
+  "pricePerRequest": 5000
+}`}</Code>
         <P>
-          Install packages, run your own clearing node. Full control over settlement windows, netting logic,
-          and facilitator selection.
+          The <InlineCode>pricePerRequest</InlineCode> is in USDC base units (6 decimals).{" "}
+          <InlineCode>5000</InlineCode> = $0.005 USDC per request.
         </P>
 
         <SectionTitle id="receipts">Receipt Format</SectionTitle>
         <P>
           A receipt is the core clearing primitive. It records that a payer owes a payee a specific amount
-          for a resource within a settlement window. No money moves when a receipt is created.
+          for a resource within a settlement window.
         </P>
 
         <SubTitle>Receipt Fields</SubTitle>
@@ -197,7 +215,7 @@ app.use('/api', gateway.middleware())`}</Code>
               <FieldRow name="resource_hash" type="Uint8Array" desc="SHA-256 hash of the resource being paid for" />
               <FieldRow name="idempotency_key" type="Uint8Array" desc="SHA-256(payer + payee + resource_hash + amount + nonce)" />
               <FieldRow name="timestamp" type="number" desc="Unix millisecond timestamp" />
-              <FieldRow name="facilitator_id" type="FacilitatorId" desc="Which facilitator will settle" />
+              <FieldRow name="facilitator_id" type="FacilitatorId" desc="Which facilitator submitted this payment" />
               <FieldRow name="nonce" type="string" desc="Client-supplied nonce for idempotency" />
             </tbody>
           </table>
@@ -248,36 +266,29 @@ app.use('/api', gateway.middleware())`}</Code>
 
         <SectionTitle id="windows">Settlement Windows</SectionTitle>
         <P>
-          A settlement window is a time-bounded period during which receipts accumulate.
-          At the end of a window, positions are netted, instructions sent, and the Merkle root anchored.
+          A settlement window is a 60-second period during which payments accumulate.
+          When a window closes, netting runs, USDC settles on-chain, and a Merkle root is anchored.
+          A new window opens immediately &mdash; zero downtime.
+        </P>
+        <P>
+          Payments submitted during settlement of the old window go into the new one. No payments are ever dropped.
         </P>
 
-        <SubTitle>State Machine</SubTitle>
-        <Code>{`OPEN → ACCUMULATING → PRE_CLOSE → NETTING → INSTRUCTING → ANCHORING → FINALIZED
-                                                                          ↘ FAILED`}</Code>
-
+        <SubTitle>Window Lifecycle</SubTitle>
         <div className="space-y-3 mb-6">
           {[
-            ["OPEN", "Window created, ready to begin accumulating receipts."],
-            ["ACCUMULATING", "Actively accepting and sequencing receipts."],
-            ["PRE_CLOSE", "No new receipts accepted. Preparing for netting."],
+            ["OPEN", "Window is accepting payment submissions."],
             ["NETTING", "Computing multilateral net positions across all counterparties."],
-            ["INSTRUCTING", "Sending settlement instructions to the facilitator. Stratum instructs — it never settles."],
-            ["ANCHORING", "Anchoring the Merkle root on-chain (data hash, not a payment)."],
-            ["FINALIZED", "Window complete. Signed window head published. Chained to previous window."],
-            ["FAILED", "Unrecoverable error. Retry mechanisms available for INSTRUCTING and ANCHORING states."],
+            ["SETTLING", "Executing USDC transfers on Solana and Base."],
+            ["ANCHORING", "Anchoring the Merkle root on Solana."],
+            ["FINALIZED", "Window complete. All payments settled with on-chain txHash proof."],
           ].map(([state, desc]) => (
             <div key={state} className="flex gap-3 text-sm">
-              <span className="font-mono text-[#3B82F6] shrink-0 w-32">{state}</span>
+              <span className="font-mono text-[#3B82F6] shrink-0 w-24">{state}</span>
               <span className="text-[#6B7280]">{desc}</span>
             </div>
           ))}
         </div>
-
-        <P>
-          The <InlineCode>WindowManager</InlineCode> provides zero-downtime transitions: when a window closes,
-          a new one opens immediately. Receipts submitted during settlement of the old window go into the new one.
-        </P>
 
         <SectionTitle id="netting">Netting</SectionTitle>
         <P>
@@ -303,20 +314,20 @@ Net positions after aggregation:
 
 Sum of all net positions: $0 ✓ (invariant holds)
 
-Settlement instructions (4 transfers instead of 5):
-  Agent A → Service X: $700
-  Agent B → Service Z: $400
-  Agent B → Service X: $100
-  Agent B → Service Y: $200
-  Agent C → Service Y: $150`}</Code>
+USDC transfers executed by Stratum (4 instead of 5):
+  → Service X: $800
+  → Service Y: $350
+  → Service Z: $400`}</Code>
 
         <P>
-          In production, 1M bilateral receipts compress to tens of net transfers.
+          In production, 10,000 bilateral payments compress to ~50 net transfers.
           The sum-to-zero invariant is always verified before settlement proceeds.
         </P>
 
         <SectionTitle id="api">API Reference</SectionTitle>
-        <P>The Stratum Gateway exposes the following REST endpoints:</P>
+        <P>
+          The Stratum Gateway at <InlineCode>gateway.stratumx402.com</InlineCode> exposes these endpoints:
+        </P>
 
         <div className="overflow-x-auto mb-6">
           <table className="w-full text-sm">
@@ -324,54 +335,38 @@ Settlement instructions (4 transfers instead of 5):
               <tr className="border-b border-[#E5E7EB]">
                 <th className="text-left py-2 pr-4 text-[11px] text-[#9CA3AF] uppercase tracking-wider">Method</th>
                 <th className="text-left py-2 pr-4 text-[11px] text-[#9CA3AF] uppercase tracking-wider">Path</th>
+                <th className="text-left py-2 pr-4 text-[11px] text-[#9CA3AF] uppercase tracking-wider">Auth</th>
                 <th className="text-left py-2 text-[11px] text-[#9CA3AF] uppercase tracking-wider">Description</th>
               </tr>
             </thead>
             <tbody>
-              <EndpointRow method="POST" path="/v1/receipt" desc="Submit a signed receipt to the current window" />
-              <EndpointRow method="GET" path="/v1/receipt/:id" desc="Retrieve a receipt by its ID" />
-              <EndpointRow method="GET" path="/v1/window/:id" desc="Get settlement window details and status" />
-              <EndpointRow method="GET" path="/v1/window/:id/head" desc="Get the signed window head (after finalization)" />
-              <EndpointRow method="GET" path="/v1/proof/:receipt_id" desc="Get Merkle inclusion proof for a receipt" />
-              <EndpointRow method="GET" path="/v1/positions/:window_id" desc="Get net positions for a window" />
-              <EndpointRow method="GET" path="/v1/health" desc="Health check endpoint" />
+              <EndpointRow method="POST" path="/v1/settle/submit" auth="API Key" desc="Submit payments for batched settlement" />
+              <EndpointRow method="GET" path="/v1/settle/status/:reference" auth="API Key" desc="Check settlement status by reference" />
+              <EndpointRow method="POST" path="/v1/settle/batch-status" auth="API Key" desc="Check multiple references at once" />
+              <EndpointRow method="GET" path="/v1/settle/recent" auth="API Key" desc="Your last 50 settled payments" />
+              <EndpointRow method="POST" path="/admin/services" auth="API Key" desc="Register a service" />
+              <EndpointRow method="GET" path="/v1/analytics" auth="Public" desc="Live analytics and stats" />
+              <EndpointRow method="GET" path="/health" auth="Public" desc="Gateway health check" />
             </tbody>
           </table>
         </div>
 
         <SubTitle>Request Headers</SubTitle>
-        <Code>{`X-PAYMENT: <agent-wallet-address>
+        <Code>{`X-API-KEY: sk_live_your_key
 Content-Type: application/json`}</Code>
-
-        <SubTitle>Response Headers</SubTitle>
-        <Code>{`X-STRATUM-RECEIPT: <receipt-id>
-X-STRATUM-SEQUENCE: <sequence-number>`}</Code>
-
-        <SubTitle>402 Payment Required Response</SubTitle>
-        <P>When a request is missing the payment header, Stratum returns:</P>
-        <Code>{`HTTP/1.1 402 Payment Required
-Content-Type: application/json
-
-{
-  "price": "200",
-  "asset": "USDC",
-  "payee": "svc-ai-inference",
-  "network": "solana"
-}`}</Code>
 
         <SectionTitle id="faq">FAQ</SectionTitle>
 
         {[
-          { q: "Is Stratum a blockchain?", a: "No. Stratum is an off-chain clearing layer. It does not produce blocks, run consensus, or maintain a distributed ledger. It uses existing blockchains (Solana, Base, etc.) only to anchor Merkle roots for auditability." },
-          { q: "Is Stratum a facilitator?", a: "No. Stratum never touches money, holds custody, or executes on-chain transfers. It sends settlement instructions to real facilitators like Coinbase or Circle. The facilitator moves the funds." },
-          { q: "What happens if Stratum goes down?", a: "No funds are at risk. Stratum never holds money. A write-ahead log ensures crash recovery. Unsigned receipts can be replayed. Settlement windows resume from the last checkpoint." },
+          { q: "Is Stratum a blockchain?", a: "No. Stratum is an off-chain clearing and settlement layer. It does not produce blocks, run consensus, or maintain a distributed ledger. It uses existing blockchains (Solana, Base) to execute USDC transfers and anchor Merkle roots." },
+          { q: "Is Stratum a facilitator?", a: "Stratum is a clearing coordinator. It sits behind facilitators, not in front of agents. Facilitators verify x402 payments and submit them to Stratum for batched settlement. Stratum handles netting and on-chain USDC settlement automatically." },
+          { q: "What happens if Stratum goes down?", a: "Queued payments are persisted in Redis and recovered on restart. No payments are lost. Settlement resumes from the last checkpoint." },
           { q: "How is privacy handled?", a: "Individual receipts are stored off-chain. Only net settlement amounts and a single Merkle root hash appear on-chain. Bilateral transaction details are not publicly visible." },
-          { q: "What chains does Stratum support?", a: "Stratum is chain-agnostic. The reference implementation anchors Merkle roots on Solana, but the architecture supports any chain that can store a 32-byte hash." },
-          { q: "What assets does Stratum support?", a: "USDC is the default settlement asset. The protocol is asset-agnostic — any asset supported by the facilitator can be used." },
+          { q: "What chains does Stratum support?", a: "Solana (mainnet) and Base (mainnet) for USDC settlement. Merkle roots are anchored on Solana." },
           { q: "How fast is receipt signing?", a: "Ed25519 signing takes microseconds. There is zero on-chain interaction during receipt creation. Receipts are processed entirely in-memory." },
           { q: "Can receipts be forged or replayed?", a: "No. Every receipt has an idempotency key derived from SHA-256(payer + payee + resource_hash + amount + nonce). Duplicate keys are rejected. Ed25519 signatures prevent forgery." },
-          { q: "How do I verify a receipt?", a: "Use the Explorer at explorer.stratum.valeo.com. Paste a receipt hash to see the Merkle inclusion proof path and verify it against the on-chain anchor." },
-          { q: "What is the compression ratio?", a: "In production: typically 50,000:1 or higher. 1M bilateral receipts compress to ~20 net settlement transfers, plus 1 Merkle root anchor transaction." },
+          { q: "How do I verify a receipt?", a: "Use the Explorer at stratumx402.com/explorer. Paste a receipt hash to see the Merkle inclusion proof and verify it against the on-chain anchor." },
+          { q: "What is the compression ratio?", a: "In production: typically 100:1 to 10,000:1. 10,000 bilateral payments compress to ~50 net USDC transfers, plus 1 Merkle root anchor transaction." },
         ].map((item) => (
           <div key={item.q} className="mb-8">
             <h4 className="text-[#0A0A0A] text-sm font-medium mb-2">{item.q}</h4>
