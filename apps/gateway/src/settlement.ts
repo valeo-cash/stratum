@@ -295,6 +295,13 @@ export async function runSettlementCycle(): Promise<SignedWindowHead | null> {
         });
         currentBatchId = dbBatch.id;
         console.log(`[settlement] Created batch ${dbBatch.id} (${netTransfers.length} transfers)`);
+
+        prisma.intakePayment.updateMany({
+          where: { windowId: window.windowId as string, status: "queued" },
+          data: { status: "batched", batchId: dbBatch.id },
+        }).then((r) => {
+          if (r.count > 0) console.log(`[settlement] Marked ${r.count} intake payments as batched`);
+        }).catch((e) => console.error("[settlement] Failed to update intake payments to batched:", e.message));
       } catch (e: any) {
         console.error("[settlement] Failed to create batch record:", e.message);
       }
@@ -352,13 +359,46 @@ export async function runSettlementCycle(): Promise<SignedWindowHead | null> {
             console.log(`[settlement] Settled ${solCount + baseCount} transfers on ${parts.join(" + ")}, total $${totalUSDC} USDC`);
 
             if (dbBatch) {
+              const allTxHashes = results.flatMap((r) => r.txHashes).join(",");
               prisma.settlementBatch.update({
                 where: { id: dbBatch.id },
-                data: { status: "settled" },
+                data: { status: "settled", txHashes: allTxHashes },
               }).catch((e) => console.error("[settlement] Failed to update batch status:", e.message));
+
+              const settledNow = new Date();
+              for (const r of results) {
+                for (const t of r.transfers) {
+                  if (t.status === "confirmed") {
+                    prisma.intakePayment.updateMany({
+                      where: {
+                        windowId: window.windowId as string,
+                        to: t.to,
+                        status: { in: ["queued", "batched"] },
+                      },
+                      data: { status: "settled", txHash: t.txHash, settledAt: settledNow },
+                    }).catch((e) => console.error("[settlement] Failed to update intake settled:", e.message));
+                  } else {
+                    prisma.intakePayment.updateMany({
+                      where: {
+                        windowId: window.windowId as string,
+                        to: t.to,
+                        status: { in: ["queued", "batched"] },
+                      },
+                      data: { status: "failed", error: t.error ?? "Transfer failed" },
+                    }).catch((e) => console.error("[settlement] Failed to update intake failed:", e.message));
+                  }
+                }
+              }
             }
           } catch (err) {
             console.error("[settlement] Real settlement failed, continuing with anchor:", err);
+
+            if (dbBatch) {
+              prisma.intakePayment.updateMany({
+                where: { windowId: window.windowId as string, status: { in: ["queued", "batched"] } },
+                data: { status: "failed", error: "Settlement execution failed" },
+              }).catch((e) => console.error("[settlement] Failed to update intake to failed:", e.message));
+            }
           }
         } else {
           const volUSDC = (Number(nettingResult.net_volume ?? 0n) / 1_000_000).toFixed(2);

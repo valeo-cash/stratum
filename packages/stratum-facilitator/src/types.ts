@@ -1,34 +1,30 @@
-export interface SettlementTransfer {
+export interface StratumConfig {
+  apiKey: string;
+  gatewayUrl?: string;
+}
+
+export interface Payment {
   from: string;
   to: string;
   amount: string;
   chain: "solana" | "base";
-  asset: string;
+  reference?: string;
+  metadata?: Record<string, any>;
 }
 
-export interface SettlementBatch {
-  batch_id: string;
-  window_id: string;
-  chain: string;
-  merkle_root: string;
-  anchor_tx_hash: string | null;
-  transfers: SettlementTransfer[];
-  total_volume: string;
-}
-
-export interface FacilitatorConfig {
-  apiKey: string;
-  solanaPrivateKey: string;
-  port?: number;
-  publicUrl?: string;
-  gatewayUrl?: string;
-  solanaRpcUrl?: string;
-  usdcMint?: string;
-}
-
-export interface SettlementResult {
-  success: boolean;
-  txHashes: string[];
-  batchId?: string;
+export interface PaymentStatus {
+  reference: string;
+  status: "queued" | "batched" | "settling" | "settled" | "failed";
+  txHash?: string;
+  settledAt?: string;
+  createdAt: string;
   error?: string;
+}
+
+export interface SubmitResponse {
+  accepted: number;
+  rejected: number;
+  windowId: string;
+  estimatedSettlement: string;
+  payments: { reference: string; status: string; receiptId: string }[];
 }

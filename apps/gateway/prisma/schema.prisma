@@ -89,6 +89,31 @@ model SettlementBatch {
   @@map("gw_settlement_batches")
 }
 
+model IntakePayment {
+  id          String    @id @default(cuid())
+  reference   String
+  apiKeyId    String
+  receiptId   String
+  windowId    String
+  from        String
+  to          String
+  amount      String
+  chain       String    @default("solana")
+  status      String    @default("queued")
+  batchId     String?
+  txHash      String?
+  error       String?
+  metadata    String?
+  createdAt   DateTime  @default(now())
+  settledAt   DateTime?
+
+  @@unique([apiKeyId, reference])
+  @@index([reference])
+  @@index([windowId])
+  @@index([status])
+  @@map("gw_intake_payments")
+}
+
 model GatewayWindow {
   id               String    @id @default(cuid())
   windowId         String    @unique

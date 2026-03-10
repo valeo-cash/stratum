@@ -1,6 +1,6 @@
 # @valeostratum/facilitator
 
-Run a Stratum settlement facilitator in 4 lines of code.
+Drop-in settlement compression for x402 facilitators.
 
 ## Install
 
@@ -8,89 +8,59 @@ Run a Stratum settlement facilitator in 4 lines of code.
 npm install @valeostratum/facilitator
 ```
 
-## Quickstart
+## Quick Start
 
-```javascript
-const { StratumFacilitator } = require('@valeostratum/facilitator');
+```js
+const { Stratum } = require('@valeostratum/facilitator');
+const stratum = new Stratum({ apiKey: 'sk_live_...' });
 
-const facilitator = new StratumFacilitator({
-  apiKey: process.env.STRATUM_API_KEY,
-  solanaPrivateKey: process.env.SOLANA_PRIVATE_KEY,
+// Submit a payment for batched settlement
+const result = await stratum.submit({
+  from: 'agent_wallet_address',
+  to: 'service_wallet_address',
+  amount: '5000',
+  chain: 'solana',
+  reference: 'my-id-123'
 });
 
-facilitator.start();
+// Check if it settled
+const status = await stratum.status('my-id-123');
+console.log(status.status);  // 'settled'
+console.log(status.txHash);  // '4B7tx...'
 ```
 
-That's it. The SDK:
+## What happens
 
-1. Starts an HTTP server on port 3200 with a `POST /settle` endpoint
-2. Generates a webhook secret automatically
-3. If `PUBLIC_URL` is set, registers the webhook with the Stratum Gateway
-4. Verifies incoming HMAC signatures
-5. Executes Solana USDC transfers
-6. Confirms settlement back to the Gateway
+1. You submit verified payments to Stratum
+2. Stratum batches them into 60-second windows
+3. Multilateral netting compresses 10,000 payments into ~50 transfers
+4. USDC settles on-chain automatically (Solana + Base)
+5. You query status to confirm
 
-## Events
+Your agents don't know Stratum exists. Your x402 flow doesn't change. Settlement just gets cheaper.
 
-```javascript
-facilitator.on('batch', (batch) => {
-  console.log(`Received batch ${batch.batch_id} with ${batch.transfers.length} transfers`);
-});
+## API
 
-facilitator.on('settled', (result) => {
-  console.log(`Settled batch ${result.batchId}: ${result.txHashes.length} transactions`);
-});
+### `stratum.submit(payment)`
 
-facilitator.on('error', (err) => {
-  console.error('Settlement error:', err.message);
-});
-```
+Submit a single payment. Returns accepted count and window info.
 
-## Configuration
+### `stratum.submitBatch(payments)`
 
-```javascript
-new StratumFacilitator({
-  apiKey: 'sk_live_...',               // required: Facilitator API key
-  solanaPrivateKey: '<base64>',        // required: Base64-encoded Solana keypair
-  port: 3200,                         // optional, default: 3200
-  publicUrl: 'https://my-server.com', // optional, reads PUBLIC_URL env
-  gatewayUrl: 'https://...',          // optional, default: gateway.stratumx402.com
-  solanaRpcUrl: 'https://...',        // optional, default: mainnet
-  usdcMint: 'EPjFWdd5...',           // optional, default: mainnet USDC
-});
-```
+Submit up to 500 payments at once.
 
-## Environment Variables
+### `stratum.status(reference)`
 
-```
-STRATUM_API_KEY=sk_live_...
-SOLANA_PRIVATE_KEY=<base64 keypair>
-PUBLIC_URL=https://your-server.com    # for auto webhook registration
-SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
-```
+Check settlement status by your reference ID.
 
-## Bring Your Own Server
+### `stratum.batchStatus(references)`
 
-If you already have an Express/Fastify/etc. server, use `handler()` instead of `start()`:
+Check multiple references at once.
 
-```javascript
-const express = require('express');
-const { StratumFacilitator } = require('@valeostratum/facilitator');
+### `stratum.recent(limit?)`
 
-const app = express();
+Get your last N settled payments (default 50).
 
-const facilitator = new StratumFacilitator({
-  apiKey: process.env.STRATUM_API_KEY,
-  solanaPrivateKey: process.env.SOLANA_PRIVATE_KEY,
-});
+## Get an API key
 
-app.post('/settle', express.raw({ type: '*/*' }), facilitator.handler());
-app.listen(3200);
-```
-
-Or use `processWebhook()` directly for any framework:
-
-```javascript
-const result = await facilitator.processWebhook(rawBody, signatureHeader);
-// { success: boolean, txHashes: string[], batchId?: string }
-```
+https://stratumx402.com/facilitators
