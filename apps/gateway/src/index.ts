@@ -23,6 +23,7 @@ import { getTeeStatus } from "./tee";
 import { getReceiptStoreInstance } from "./receipt-store";
 import { isRedisConnected } from "./redis";
 import { startBalanceMonitor, stopBalanceMonitor, getSettlementBalance } from "./balance-monitor";
+import { startReconciler, stopReconciler } from "./reconciler";
 
 const server = Fastify({ logger: true });
 
@@ -116,6 +117,7 @@ async function gracefulShutdown(signal: string) {
 
   stopSettlementLoop();
   stopBalanceMonitor();
+  stopReconciler();
 
   await persistCurrentWindow();
 
@@ -164,6 +166,7 @@ const start = async () => {
     await recoverOrphanedPayments();
     startSettlementLoop();
     startBalanceMonitor();
+    startReconciler();
 
     if (process.env.ENABLE_SIMULATOR === "true") {
       const { startSimulator } = await import("./simulator");

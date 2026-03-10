@@ -102,10 +102,12 @@ model IntakePayment {
   status      String    @default("queued")
   batchId     String?
   txHash      String?
-  error       String?
-  metadata    String?
-  createdAt   DateTime  @default(now())
-  settledAt   DateTime?
+  error        String?
+  metadata     String?
+  reconciled   Boolean   @default(false)
+  reconciledAt DateTime?
+  createdAt    DateTime  @default(now())
+  settledAt    DateTime?
 
   @@unique([apiKeyId, reference])
   @@index([reference])

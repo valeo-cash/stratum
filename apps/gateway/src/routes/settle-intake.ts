@@ -15,6 +15,7 @@ import { getGatewayPrivateKey, toHex } from "../crypto";
 import { prisma } from "../db";
 import { checkBalance } from "../balance-check";
 import { getRedisClient } from "../redis";
+import { getReconciliationStats } from "../reconciler";
 
 const facilitatorGuard = requireRole("facilitator", "admin");
 
@@ -482,5 +483,11 @@ export default async function settleIntakeRoutes(fastify: FastifyInstance) {
     });
 
     return { payments: results };
+  });
+
+  const adminGuard = requireRole("admin");
+
+  fastify.get("/v1/settle/reconciliation", { preHandler: adminGuard }, async () => {
+    return getReconciliationStats();
   });
 }
