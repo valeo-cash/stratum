@@ -7,11 +7,10 @@ import {
 } from "@solana/web3.js";
 import {
   getAssociatedTokenAddress,
+  getOrCreateAssociatedTokenAccount,
   createTransferCheckedInstruction,
-  createAssociatedTokenAccountIdempotentInstruction,
   getAccount,
   TOKEN_PROGRAM_ID,
-  ASSOCIATED_TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 import type {
   ChainSettlement,
@@ -53,50 +52,53 @@ export class SolanaSettlement implements ChainSettlement {
       const chunkTransfers: { from: string; to: string; amount: bigint }[] = [];
 
       for (const t of chunk) {
-        const destOwner = new PublicKey(t.to);
-        const useDelegateAuth = t.authorizationType === "token-approval";
+        try {
+          const destOwner = new PublicKey(t.to);
+          const useDelegateAuth = t.authorizationType === "token-approval";
 
-        const sourceOwner = useDelegateAuth
-          ? new PublicKey(t.from)
-          : this.settlementKeypair.publicKey;
+          const sourceOwner = useDelegateAuth
+            ? new PublicKey(t.from)
+            : this.settlementKeypair.publicKey;
 
-        const sourceAta = await getAssociatedTokenAddress(
-          this.usdcMint,
-          sourceOwner,
-        );
-        const destAta = await getAssociatedTokenAddress(
-          this.usdcMint,
-          destOwner,
-        );
-
-        tx.add(
-          createAssociatedTokenAccountIdempotentInstruction(
-            this.settlementKeypair.publicKey,
-            destAta,
-            destOwner,
+          const sourceAta = await getAssociatedTokenAddress(
             this.usdcMint,
+            sourceOwner,
+          );
+
+          const destAtaAccount = await getOrCreateAssociatedTokenAccount(
+            this.connection,
+            this.settlementKeypair,
+            this.usdcMint,
+            destOwner,
+          );
+
+          const ix = createTransferCheckedInstruction(
+            sourceAta,
+            this.usdcMint,
+            destAtaAccount.address,
+            this.settlementKeypair.publicKey,
+            t.amount,
+            USDC_DECIMALS,
+            [],
             TOKEN_PROGRAM_ID,
-            ASSOCIATED_TOKEN_PROGRAM_ID,
-          ),
-        );
+          );
 
-        // When using delegate authority, the settlement keypair acts as the
-        // approved delegate on the agent's ATA. Otherwise it transfers from
-        // Stratum's own ATA as the owner.
-        const ix = createTransferCheckedInstruction(
-          sourceAta,
-          this.usdcMint,
-          destAta,
-          this.settlementKeypair.publicKey,
-          t.amount,
-          USDC_DECIMALS,
-          [],
-          TOKEN_PROGRAM_ID,
-        );
-
-        tx.add(ix);
-        chunkTransfers.push({ from: t.from, to: t.to, amount: t.amount });
+          tx.add(ix);
+          chunkTransfers.push({ from: t.from, to: t.to, amount: t.amount });
+        } catch (ataErr: any) {
+          console.error(`[solana-settlement] Transfer failed: ${t.to}`, ataErr.message ?? ataErr);
+          results.push({
+            from: t.from,
+            to: t.to,
+            amount: t.amount,
+            txHash: "",
+            status: "failed",
+            error: `ATA setup failed: ${ataErr.message ?? ataErr}`,
+          });
+        }
       }
+
+      if (chunkTransfers.length === 0) continue;
 
       try {
         const signature = await sendAndConfirmTransaction(

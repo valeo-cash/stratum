@@ -19,15 +19,15 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@valeo/stratum-core": "workspace:*",
-    "@solana/web3.js": "^1.98.0",
     "@solana/spl-token": "^0.4.9",
-    "viem": "^2"
+    "@solana/web3.js": "^1.98.0",
+    "@valeo/stratum-core": "workspace:*",
+    "viem": "^2.46.3"
   },
   "devDependencies": {
     "@types/node": "^20",
-    "typescript": "^5",
     "tsup": "^8",
+    "typescript": "^5",
     "vitest": "^2"
   }
 }
