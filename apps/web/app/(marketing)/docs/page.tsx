@@ -10,18 +10,18 @@ export const metadata: Metadata = {
 
 function SectionTitle({ id, children }: { id: string; children: React.ReactNode }) {
   return (
-    <h2 id={id} className="text-[#0A0A0A] text-2xl font-medium mt-20 mb-6 scroll-mt-20 first:mt-0">
+    <h2 id={id} className="text-[#0A0A0A] text-3xl font-medium mt-20 mb-6 scroll-mt-20 first:mt-0">
       {children}
     </h2>
   );
 }
 
 function SubTitle({ children }: { children: React.ReactNode }) {
-  return <h3 className="text-[#0A0A0A] text-lg font-medium mt-10 mb-4">{children}</h3>;
+  return <h3 className="text-[#0A0A0A] text-xl font-medium mt-10 mb-4">{children}</h3>;
 }
 
 function P({ children }: { children: React.ReactNode }) {
-  return <p className="text-[#6B7280] text-sm leading-relaxed mb-4">{children}</p>;
+  return <p className="text-[#6B7280] text-base leading-relaxed mb-4">{children}</p>;
 }
 
 function Code({ children }: { children: string }) {
@@ -82,7 +82,7 @@ export default function DocsPage() {
         </P>
 
         <SubTitle>What Stratum Does</SubTitle>
-        <ol className="list-decimal list-inside text-[#6B7280] text-sm space-y-3 mb-6 pl-2">
+        <ol className="list-decimal list-inside text-[#6B7280] text-base space-y-3 mb-6 pl-2">
           <li>
             <strong className="text-[#0A0A0A]">Accepts payment instructions.</strong> Facilitators submit verified x402 payments
             via <InlineCode>POST /v1/settle/submit</InlineCode>. Stratum records each as a signed receipt.
@@ -139,7 +139,7 @@ export default function DocsPage() {
 
         <SubTitle>For Facilitators (Primary Integration)</SubTitle>
         <P>Facilitators verify x402 payments, then submit them to Stratum for batched settlement.</P>
-        <ol className="list-decimal list-inside text-[#6B7280] text-sm space-y-2 mb-6 pl-2">
+        <ol className="list-decimal list-inside text-[#6B7280] text-base space-y-2 mb-6 pl-2">
           <li>Get an API key at{" "}
             <Link href="/facilitators" className="text-[#3B82F6] hover:underline">stratumx402.com/facilitators</Link>
           </li>
@@ -165,7 +165,7 @@ const status = await stratum.status('your-internal-id');
 
         <SubTitle>For Sellers / API Providers</SubTitle>
         <P>Sellers register their service and receive USDC automatically. No code changes needed.</P>
-        <ol className="list-decimal list-inside text-[#6B7280] text-sm space-y-2 mb-6 pl-2">
+        <ol className="list-decimal list-inside text-[#6B7280] text-base space-y-2 mb-6 pl-2">
           <li>Get an API key at{" "}
             <Link href="/facilitators" className="text-[#3B82F6] hover:underline">stratumx402.com/facilitators</Link>
           </li>
@@ -283,7 +283,7 @@ X-API-KEY: sk_live_your_key
             ["ANCHORING", "Anchoring the Merkle root on Solana."],
             ["FINALIZED", "Window complete. All payments settled with on-chain txHash proof."],
           ].map(([state, desc]) => (
-            <div key={state} className="flex gap-3 text-sm">
+            <div key={state} className="flex gap-3 text-base">
               <span className="font-mono text-[#3B82F6] shrink-0 w-24">{state}</span>
               <span className="text-[#6B7280]">{desc}</span>
             </div>
@@ -369,7 +369,7 @@ Content-Type: application/json`}</Code>
           { q: "What is the compression ratio?", a: "In production: typically 100:1 to 10,000:1. 10,000 bilateral payments compress to ~50 net USDC transfers, plus 1 Merkle root anchor transaction." },
         ].map((item) => (
           <div key={item.q} className="mb-8">
-            <h4 className="text-[#0A0A0A] text-sm font-medium mb-2">{item.q}</h4>
+            <h4 className="text-[#0A0A0A] text-base font-medium mb-2">{item.q}</h4>
             <P>{item.a}</P>
           </div>
         ))}

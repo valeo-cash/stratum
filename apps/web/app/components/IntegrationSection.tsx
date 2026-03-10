@@ -42,24 +42,24 @@ export default function IntegrationSection() {
           <div>
             {active === "facilitator" && (
               <div className="rounded-none border border-[#E5E7EB] bg-[#FAFAFA] p-8 lg:p-10">
-                <h3 className="text-[#0A0A0A] text-lg font-medium mb-4">
+                <h3 className="text-[#0A0A0A] text-xl font-medium mb-4">
                   Point your payment pipeline at Stratum&rsquo;s output
                 </h3>
-                <p className="text-[#6B7280] text-sm leading-relaxed mb-6">
+                <p className="text-[#6B7280] text-base leading-relaxed mb-6">
                   Receive 50 netted transfers instead of 10,000 raw ones. Same settlement
                   logic you already run. Stratum compresses your input &mdash; your
                   infrastructure doesn&rsquo;t change.
                 </p>
                 <ul className="space-y-3 mb-8">
-                  <li className="flex items-start gap-3 text-sm text-[#6B7280]">
+                  <li className="flex items-start gap-3 text-base text-[#6B7280]">
                     <span className="mt-1 w-1.5 h-1.5 bg-[#3B82F6] rounded-full shrink-0" />
                     Register for netted batches via webhook or polling API
                   </li>
-                  <li className="flex items-start gap-3 text-sm text-[#6B7280]">
+                  <li className="flex items-start gap-3 text-base text-[#6B7280]">
                     <span className="mt-1 w-1.5 h-1.5 bg-[#3B82F6] rounded-full shrink-0" />
                     Execute the minimum transfer set on Solana or Base
                   </li>
-                  <li className="flex items-start gap-3 text-sm text-[#6B7280]">
+                  <li className="flex items-start gap-3 text-base text-[#6B7280]">
                     <span className="mt-1 w-1.5 h-1.5 bg-[#3B82F6] rounded-full shrink-0" />
                     Or let Stratum settle automatically &mdash; zero work on your end
                   </li>
@@ -75,24 +75,24 @@ export default function IntegrationSection() {
 
             {active === "seller" && (
               <div className="rounded-none border border-[#E5E7EB] bg-[#FAFAFA] p-8 lg:p-10">
-                <h3 className="text-[#0A0A0A] text-lg font-medium mb-4">
+                <h3 className="text-[#0A0A0A] text-xl font-medium mb-4">
                   Register your service and wallet
                 </h3>
-                <p className="text-[#6B7280] text-sm leading-relaxed mb-6">
+                <p className="text-[#6B7280] text-base leading-relaxed mb-6">
                   USDC arrives every 60 seconds. You don&rsquo;t need to understand
                   clearing &mdash; your facilitator handles it. Nothing changes on your
                   side.
                 </p>
                 <ul className="space-y-3 mb-8">
-                  <li className="flex items-start gap-3 text-sm text-[#6B7280]">
+                  <li className="flex items-start gap-3 text-base text-[#6B7280]">
                     <span className="mt-1 w-1.5 h-1.5 bg-[#9CA3AF] rounded-full shrink-0" />
                     One API call to register your service
                   </li>
-                  <li className="flex items-start gap-3 text-sm text-[#6B7280]">
+                  <li className="flex items-start gap-3 text-base text-[#6B7280]">
                     <span className="mt-1 w-1.5 h-1.5 bg-[#9CA3AF] rounded-full shrink-0" />
                     Provide a wallet address for Solana or Base
                   </li>
-                  <li className="flex items-start gap-3 text-sm text-[#6B7280]">
+                  <li className="flex items-start gap-3 text-base text-[#6B7280]">
                     <span className="mt-1 w-1.5 h-1.5 bg-[#9CA3AF] rounded-full shrink-0" />
                     USDC settles automatically every 60 seconds
                   </li>

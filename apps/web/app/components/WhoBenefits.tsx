@@ -31,13 +31,13 @@ export default function WhoBenefits() {
               <h3 className="text-[#0A0A0A] text-xl font-medium mb-6">For Facilitators</h3>
               <ul className="space-y-4 mb-8">
                 {facilitatorBenefits.map((item) => (
-                  <li key={item} className="flex items-start gap-3 text-sm text-[#374151] leading-relaxed">
+                  <li key={item} className="flex items-start gap-3 text-base text-[#374151] leading-relaxed">
                     <span className="mt-1 w-1.5 h-1.5 bg-[#3B82F6] rounded-full shrink-0" />
                     <span>{item}</span>
                   </li>
                 ))}
               </ul>
-              <p className="text-[#6B7280] text-sm leading-relaxed italic border-t border-[#3B82F6]/20 pt-6">
+              <p className="text-[#6B7280] text-base leading-relaxed italic border-t border-[#3B82F6]/20 pt-6">
                 &ldquo;You already settle x402 payments. Stratum makes that 100x cheaper.&rdquo;
               </p>
             </div>
@@ -49,13 +49,13 @@ export default function WhoBenefits() {
               <h3 className="text-[#0A0A0A] text-xl font-medium mb-6">For Sellers / API Providers</h3>
               <ul className="space-y-4 mb-8">
                 {sellerBenefits.map((item) => (
-                  <li key={item} className="flex items-start gap-3 text-sm text-[#374151] leading-relaxed">
+                  <li key={item} className="flex items-start gap-3 text-base text-[#374151] leading-relaxed">
                     <span className="mt-1 w-1.5 h-1.5 bg-[#9CA3AF] rounded-full shrink-0" />
                     <span>{item}</span>
                   </li>
                 ))}
               </ul>
-              <p className="text-[#6B7280] text-sm leading-relaxed italic border-t border-[#E5E7EB] pt-6">
+              <p className="text-[#6B7280] text-base leading-relaxed italic border-t border-[#E5E7EB] pt-6">
                 &ldquo;You don&rsquo;t integrate Stratum. Your facilitator does. You just get paid faster.&rdquo;
               </p>
             </div>

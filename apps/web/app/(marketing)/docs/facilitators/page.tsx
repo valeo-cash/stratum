@@ -20,7 +20,7 @@ function SectionTitle({
   return (
     <h2
       id={id}
-      className="text-[#0A0A0A] text-2xl font-medium mt-20 mb-6 scroll-mt-20 first:mt-0"
+      className="text-[#0A0A0A] text-3xl font-medium mt-20 mb-6 scroll-mt-20 first:mt-0"
     >
       {children}
     </h2>
@@ -29,7 +29,7 @@ function SectionTitle({
 
 function SubTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h3 className="text-[#0A0A0A] text-lg font-medium mt-10 mb-4">
+    <h3 className="text-[#0A0A0A] text-xl font-medium mt-10 mb-4">
       {children}
     </h3>
   );
@@ -37,7 +37,7 @@ function SubTitle({ children }: { children: React.ReactNode }) {
 
 function P({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[#6B7280] text-sm leading-relaxed mb-4">{children}</p>
+    <p className="text-[#6B7280] text-base leading-relaxed mb-4">{children}</p>
   );
 }
 
@@ -110,7 +110,7 @@ export default function FacilitatorDocsPage() {
             </Link>
           </div>
 
-          <h1 className="text-[#0A0A0A] text-3xl font-medium mb-2">
+          <h1 className="text-[#0A0A0A] text-4xl font-medium mb-2">
             Integration Guide
           </h1>
           <p className="text-[#9CA3AF] text-sm font-mono mb-12">
@@ -357,7 +357,7 @@ X-API-KEY: sk_live_your_key
 
           {/* What Stratum Does Automatically */}
           <SectionTitle id="automatic">What Stratum Does Automatically</SectionTitle>
-          <ol className="list-decimal list-inside text-sm text-[#6B7280] leading-relaxed mb-6 space-y-2 pl-2">
+          <ol className="list-decimal list-inside text-base text-[#6B7280] leading-relaxed mb-6 space-y-2 pl-2">
             <li>Creates destination token accounts if they don&apos;t exist</li>
             <li>Compresses payments through multilateral netting</li>
             <li>Executes USDC transfers on Solana and Base</li>

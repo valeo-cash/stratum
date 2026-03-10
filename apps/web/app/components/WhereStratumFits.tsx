@@ -71,7 +71,7 @@ export default function WhereStratumFits() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-16">
           <FadeIn delay={200}>
             <div className="rounded-none bg-[#F3F4F6] p-8 h-full">
-              <h3 className="text-[#9CA3AF] text-lg font-medium mb-6">Without Stratum</h3>
+              <h3 className="text-[#9CA3AF] text-xl font-medium mb-6">Without Stratum</h3>
               <div className="space-y-4 text-sm text-[#9CA3AF]">
                 <div className="flex items-start gap-3">
                   <span className="mt-0.5 shrink-0">&times;</span>
@@ -90,7 +90,7 @@ export default function WhereStratumFits() {
           </FadeIn>
           <FadeIn delay={300}>
             <div className="rounded-none bg-[#003FFF] p-8 h-full">
-              <h3 className="text-white text-lg font-medium mb-6">With Stratum</h3>
+              <h3 className="text-white text-xl font-medium mb-6">With Stratum</h3>
               <div className="space-y-4 text-sm text-white">
                 <div className="flex items-start gap-3">
                   <span className="mt-0.5 shrink-0">{"\u2713"}</span>
@@ -112,7 +112,7 @@ export default function WhereStratumFits() {
         {/* Clarification */}
         <FadeIn delay={400}>
           <div className="rounded-none border border-[#E5E7EB] bg-white p-8 max-w-3xl">
-            <p className="text-[#6B7280] text-sm leading-relaxed">
+            <p className="text-[#6B7280] text-base leading-relaxed">
               <strong className="text-[#0A0A0A]">Stratum is not a facilitator.</strong>{" "}
               It doesn&rsquo;t verify x402 payments or sit in the HTTP request path. Stratum
               is a clearing coordinator &mdash; it receives signed payment receipts, compresses

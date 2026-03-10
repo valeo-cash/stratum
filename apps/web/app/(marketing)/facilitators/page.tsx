@@ -135,7 +135,7 @@ export default function FacilitatorsPage() {
                   <h3 className="text-[#0A0A0A] text-lg font-medium">
                     {prop.title}
                   </h3>
-                  <p className="text-[#6B7280] text-sm leading-relaxed">
+                  <p className="text-[#6B7280] text-base leading-relaxed">
                     {prop.description}
                   </p>
                 </div>
@@ -157,10 +157,10 @@ export default function FacilitatorsPage() {
                     {step.n}
                   </span>
                   <div>
-                    <h3 className="text-[#0A0A0A] text-base font-medium mb-2">
+                    <h3 className="text-[#0A0A0A] text-lg font-medium mb-2">
                       {step.title}
                     </h3>
-                    <p className="text-[#6B7280] text-sm leading-relaxed">
+                    <p className="text-[#6B7280] text-base leading-relaxed">
                       {step.description}
                     </p>
                   </div>
@@ -208,10 +208,10 @@ export default function FacilitatorsPage() {
             <p className="text-[11px] font-mono text-[#9CA3AF] uppercase tracking-[0.2em] mb-10">
               Get started
             </p>
-            <h2 className="text-[#0A0A0A] text-2xl font-medium mb-3">
+            <h2 className="text-[#0A0A0A] text-3xl font-medium mb-3">
               Get your API key
             </h2>
-            <p className="text-[#6B7280] text-sm leading-relaxed mb-8">
+            <p className="text-[#6B7280] text-base leading-relaxed mb-8">
               Generate a key to start integrating with the Stratum settlement
               network. No approval required.
             </p>
@@ -225,14 +225,14 @@ export default function FacilitatorsPage() {
             <p className="text-[11px] font-mono text-[#9CA3AF] uppercase tracking-[0.2em] mb-10">
               Registration
             </p>
-            <h2 className="text-[#0A0A0A] text-2xl font-medium mb-3">
+            <h2 className="text-[#0A0A0A] text-3xl font-medium mb-3">
               Register a service
             </h2>
-            <p className="text-[#6B7280] text-sm leading-relaxed mb-8">
+            <p className="text-[#6B7280] text-base leading-relaxed mb-8">
               One API call. Provide your service name, wallet address, and price per request.
             </p>
             <CodeBlock code={REGISTER_EXAMPLE} />
-            <p className="text-[#6B7280] text-sm leading-relaxed mt-6">
+            <p className="text-[#6B7280] text-base leading-relaxed mt-6">
               That&apos;s it. Stratum handles clearing, netting, Merkle proofs,
               and USDC settlement automatically.
             </p>
@@ -245,14 +245,14 @@ export default function FacilitatorsPage() {
             <p className="text-[11px] font-mono text-[#9CA3AF] uppercase tracking-[0.2em] mb-10">
               Under the hood
             </p>
-            <h2 className="text-[#0A0A0A] text-2xl font-medium mb-6">
+            <h2 className="text-[#0A0A0A] text-3xl font-medium mb-6">
               What Stratum does automatically
             </h2>
             <ul className="space-y-4">
               {automatedFeatures.map((feature) => (
                 <li key={feature} className="flex items-start gap-3">
                   <span className="mt-1.5 w-1.5 h-1.5 bg-[#3B82F6] rounded-full shrink-0" />
-                  <span className="text-[#6B7280] text-sm leading-relaxed">
+                  <span className="text-[#6B7280] text-base leading-relaxed">
                     {feature}
                   </span>
                 </li>
@@ -264,10 +264,10 @@ export default function FacilitatorsPage() {
         {/* CTA */}
         <section className="py-20 px-6 lg:px-16 border-t border-[#F3F4F6]">
           <div className="max-w-3xl">
-            <h2 className="text-[#0A0A0A] text-2xl font-medium mb-4">
+            <h2 className="text-[#0A0A0A] text-3xl font-medium mb-4">
               Ready to get started?
             </h2>
-            <p className="text-[#6B7280] text-sm leading-relaxed mb-8">
+            <p className="text-[#6B7280] text-base leading-relaxed mb-8">
               Register your service and USDC arrives every 60 seconds. No
               servers to run, no webhooks to manage, no code to deploy.
             </p>

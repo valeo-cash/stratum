@@ -43,7 +43,7 @@ export default function AnalogySection() {
                 </div>
                 <p className="text-lg font-medium mb-2 text-[#0A0A0A] font-mono">{item.stat}</p>
                 <h3 className="text-[#9CA3AF] text-sm font-medium mb-3 uppercase tracking-wider">{item.title}</h3>
-                <p className="text-[#6B7280] text-sm leading-relaxed">{item.description}</p>
+                <p className="text-[#6B7280] text-base leading-relaxed">{item.description}</p>
               </div>
             </FadeIn>
           ))}

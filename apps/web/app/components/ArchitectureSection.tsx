@@ -62,7 +62,7 @@ export default function ArchitectureSection() {
               <div className="rounded-none border border-[#E5E7EB] bg-white p-6 h-full hover:border-[#D1D5DB] transition-colors">
                 <div className="mb-4">{card.icon}</div>
                 <h4 className="text-[#0A0A0A] text-sm font-medium mb-2">{card.title}</h4>
-                <p className="text-[#6B7280] text-sm leading-relaxed">{card.description}</p>
+                <p className="text-[#6B7280] text-base leading-relaxed">{card.description}</p>
               </div>
             </FadeIn>
           ))}

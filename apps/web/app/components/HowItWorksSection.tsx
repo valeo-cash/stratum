@@ -72,7 +72,7 @@ export default function HowItWorksSection() {
               style={{ opacity: Math.max(panelOpacity[activePanel], progress > 0.02 ? 0.3 : 0) }}
             >
               <p className="text-[#9CA3AF] text-[11px] font-mono uppercase tracking-[0.15em] mb-3">{panel.step}</p>
-              <h3 className="text-[#0A0A0A] text-2xl mb-5" style={{ fontWeight: 500 }}>{panel.title}</h3>
+              <h3 className="text-[#0A0A0A] text-3xl mb-5" style={{ fontWeight: 500 }}>{panel.title}</h3>
               <div className="mb-5">
                 <p className="text-[#0A0A0A] font-mono" style={{ fontSize: "clamp(2rem, 5vw, 3rem)", lineHeight: 1 }}>
                   {activePanel === 0 && <CountUp target={1247891} duration={2000} />}
@@ -82,7 +82,7 @@ export default function HowItWorksSection() {
                 </p>
                 <p className="text-[#9CA3AF] text-sm mt-2">{panel.label}</p>
               </div>
-              <p className="text-[#6B7280] text-sm leading-relaxed mb-5">{panel.description}</p>
+              <p className="text-[#6B7280] text-base leading-relaxed mb-5">{panel.description}</p>
               <div className={`inline-flex items-center gap-2 rounded-none border px-4 py-1.5 ${badgeColors[panel.badge.color]}`}>
                 {panel.badge.color === "red" && <span className="w-1.5 h-1.5 rounded-none bg-[#EF4444] animate-pulse" />}
                 {panel.badge.color === "green" && <span className="w-1.5 h-1.5 rounded-none bg-[#10B981]" />}

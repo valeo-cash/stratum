@@ -25,7 +25,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={dmSans.variable}>
-      <body className="bg-white text-[#0A0A0A] font-sans font-light antialiased">
+      <body className="bg-white text-[#0A0A0A] font-sans font-normal antialiased">
         {children}
       </body>
     </html>

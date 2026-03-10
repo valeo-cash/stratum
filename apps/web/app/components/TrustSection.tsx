@@ -35,10 +35,10 @@ export default function TrustSection() {
                   <span className="w-8 h-8 rounded-none bg-[#F3F4F6] flex items-center justify-center text-[#0A0A0A] font-mono text-sm font-bold">{i + 1}</span>
                   <h3 className="text-[#0A0A0A] font-medium">{level.title}</h3>
                 </div>
-                <p className="text-[#6B7280] text-sm leading-relaxed mb-5">{level.description}</p>
+                <p className="text-[#6B7280] text-base leading-relaxed mb-5">{level.description}</p>
                 <ul className="space-y-2">
                   {level.items.map((item) => (
-                    <li key={item} className="flex items-center gap-2 text-sm text-[#9CA3AF]">
+                    <li key={item} className="flex items-center gap-2 text-base text-[#9CA3AF]">
                       <span className="w-1 h-1 rounded-full bg-[#D1D5DB]" />
                       {item}
                     </li>

@@ -8,11 +8,11 @@ export const metadata: Metadata = {
 };
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
-  return <h2 className="text-[#0A0A0A] text-2xl font-medium mt-20 mb-6 first:mt-0">{children}</h2>;
+  return <h2 className="text-[#0A0A0A] text-3xl font-medium mt-20 mb-6 first:mt-0">{children}</h2>;
 }
 
 function P({ children }: { children: React.ReactNode }) {
-  return <p className="text-[#6B7280] text-sm leading-relaxed mb-4">{children}</p>;
+  return <p className="text-[#6B7280] text-base leading-relaxed mb-4">{children}</p>;
 }
 
 function InlineCode({ children }: { children: React.ReactNode }) {
@@ -25,7 +25,7 @@ export default function SecurityPage() {
       <main className="min-h-screen pt-24 pb-20">
         <div className="max-w-3xl mx-auto px-6 lg:px-12">
           <FadeIn>
-            <h1 className="text-[#0A0A0A] text-3xl font-medium mb-4">Security</h1>
+            <h1 className="text-[#0A0A0A] text-4xl font-medium mb-4">Security</h1>
             <P>
               Stratum is designed so that trust is minimized and verification is maximized.
               This page explains what is trusted, what is verified, and what is anchored on-chain.
@@ -214,7 +214,7 @@ export default function SecurityPage() {
 
           <FadeIn delay={200}>
             <div className="mt-12 rounded-none border border-[#E5E7EB] bg-[#FAFAFA] p-8 text-center">
-              <h3 className="text-[#0A0A0A] text-lg font-medium mb-3">Verify a receipt now</h3>
+              <h3 className="text-[#0A0A0A] text-xl font-medium mb-3">Verify a receipt now</h3>
               <P>
                 The Stratum Explorer lets you paste any receipt hash and see the full Merkle proof path,
                 verified against the on-chain anchor.

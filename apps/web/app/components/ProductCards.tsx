@@ -40,7 +40,7 @@ export default function ProductCards() {
                     <p className="text-[11px] font-mono text-[#9CA3AF] uppercase tracking-[0.15em] mb-2">
                       {product.title.replace("Stratum ", "")}
                     </p>
-                    <p className="text-sm text-[#6B7280] leading-relaxed">{product.description}</p>
+                    <p className="text-base text-[#6B7280] leading-relaxed">{product.description}</p>
                   </div>
                 </div>
               </a>
