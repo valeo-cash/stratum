@@ -14,6 +14,7 @@ import {
   getCurrentWindowInfo,
   getLastSettlementTime,
   persistCurrentWindow,
+  INSTANCE_ID,
 } from "./settlement";
 import { loadServicesFromDb } from "./registry";
 import { retryPendingWindows, getPendingRetryCount } from "./retry-queue";
@@ -172,6 +173,8 @@ const start = async () => {
       const { startSimulator } = await import("./simulator");
       startSimulator();
     }
+
+    console.log(`[gateway] Instance ID: ${INSTANCE_ID}`);
 
     const port = parseInt(process.env.PORT || "3100", 10);
     const host = process.env.HOST || "0.0.0.0";

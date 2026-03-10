@@ -24,6 +24,10 @@ import { listServices } from "./registry";
 import { prisma } from "./db";
 import { notifyFacilitators, getActiveFacilitatorId } from "./webhook";
 import { createReceiptStore, getReceiptStoreInstance, type ReceiptStore } from "./receipt-store";
+import { getRedisClient } from "./redis";
+import { randomUUID } from "crypto";
+
+export const INSTANCE_ID = randomUUID().slice(0, 12);
 
 const config: StratumConfig = {
   version: 1,
@@ -209,6 +213,40 @@ function mapNettingToNetTransfers(
   return transfers;
 }
 
+async function acquireSettleLock(windowId: string): Promise<boolean> {
+  const redis = getRedisClient();
+  if (!redis) return true;
+
+  try {
+    const result = await redis.set(
+      `stratum:lock:settle:${windowId}`,
+      `instance-${INSTANCE_ID}`,
+      "EX",
+      120,
+      "NX",
+    );
+    return result === "OK";
+  } catch (err: any) {
+    console.warn("[settlement] Redis lock acquisition failed, proceeding:", err.message);
+    return true;
+  }
+}
+
+async function releaseSettleLock(windowId: string): Promise<void> {
+  const redis = getRedisClient();
+  if (!redis) return;
+
+  try {
+    const key = `stratum:lock:settle:${windowId}`;
+    const val = await redis.get(key);
+    if (val === `instance-${INSTANCE_ID}`) {
+      await redis.del(key);
+    }
+  } catch {
+    // best-effort release
+  }
+}
+
 export async function runSettlementCycle(): Promise<SignedWindowHead | null> {
   const currentWindow = manager.getCurrentWindow();
   if (currentWindow.getReceiptCount() === 0) {
@@ -216,12 +254,19 @@ export async function runSettlementCycle(): Promise<SignedWindowHead | null> {
   }
 
   const windowId = currentWindow.windowId as string;
+
+  const lockAcquired = await acquireSettleLock(windowId);
+  if (!lockAcquired) {
+    console.log(`[settlement] Window ${windowId} locked by another instance — skipping`);
+    return null;
+  }
+
   const receiptCount = currentWindow.getReceiptCount();
   const receipts = currentWindow.getReceipts();
   let grossVolumeCalc = 0n;
   for (const r of receipts) grossVolumeCalc += r.receipt.amount;
 
-  console.log(`[settlement] Closing window with ${receiptCount} receipts`);
+  console.log(`[settlement] Closing window with ${receiptCount} receipts (instance: ${INSTANCE_ID})`);
 
   try {
     await prisma.gatewayWindow.upsert({
@@ -698,9 +743,11 @@ export async function runSettlementCycle(): Promise<SignedWindowHead | null> {
   });
   } catch (err) {
     console.error(`[settlement] Settlement cycle failed for window ${windowId}, will retry on next startup:`, err);
+    await releaseSettleLock(windowId);
     return null;
   }
 
+  await releaseSettleLock(windowId);
   lastSettlementTime = new Date();
   windowSettlementResults = undefined;
   return head;
