@@ -163,6 +163,20 @@ export function getCurrentWindowInfo() {
   };
 }
 
+const windowVolumeMap = new Map<string, bigint>();
+
+export function addWindowVolume(windowId: string, amount: bigint) {
+  windowVolumeMap.set(windowId, (windowVolumeMap.get(windowId) ?? 0n) + amount);
+}
+
+export function getWindowVolume(windowId: string): bigint {
+  return windowVolumeMap.get(windowId) ?? 0n;
+}
+
+export function clearWindowVolume(windowId: string) {
+  windowVolumeMap.delete(windowId);
+}
+
 function inferChain(address: string): "solana" | "base" {
   return address.startsWith("0x") ? "base" : "solana";
 }

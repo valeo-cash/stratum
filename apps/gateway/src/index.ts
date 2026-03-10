@@ -78,6 +78,11 @@ server.get("/health", async () => {
     receiptStore: store.backend,
     redisConnected: store.backend === "redis" ? isRedisConnected() : undefined,
     settlementBalance: getSettlementBalance(),
+    limits: {
+      windowMax: (Number(BigInt(process.env.MAX_WINDOW_VOLUME || "10000000000")) / 1_000_000).toString(),
+      dailyMax: (Number(BigInt(process.env.MAX_DAILY_VOLUME_PER_KEY || "50000000000")) / 1_000_000).toString(),
+      singleMax: (Number(BigInt(process.env.MAX_SINGLE_TRANSFER || "1000000000")) / 1_000_000).toString(),
+    },
   };
 });
 

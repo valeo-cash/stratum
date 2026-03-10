@@ -10,10 +10,11 @@ import {
   type Receipt,
 } from "@valeo/stratum-core";
 import { requireRole } from "../middleware/auth";
-import { getCurrentWindowInfo, submitReceipt } from "../settlement";
+import { getCurrentWindowInfo, submitReceipt, addWindowVolume, getWindowVolume } from "../settlement";
 import { getGatewayPrivateKey, toHex } from "../crypto";
 import { prisma } from "../db";
 import { checkBalance } from "../balance-check";
+import { getRedisClient } from "../redis";
 
 const facilitatorGuard = requireRole("facilitator", "admin");
 
@@ -27,6 +28,44 @@ interface PaymentInput {
 }
 
 let intakeSeq = 0;
+
+const MAX_WINDOW_VOLUME = BigInt(process.env.MAX_WINDOW_VOLUME || "10000000000");
+const MAX_DAILY_VOLUME_PER_KEY = BigInt(process.env.MAX_DAILY_VOLUME_PER_KEY || "50000000000");
+const MAX_SINGLE_TRANSFER = BigInt(process.env.MAX_SINGLE_TRANSFER || "1000000000");
+
+const dailyVolumeMemory = new Map<string, bigint>();
+
+function todayKey(apiKeyId: string): string {
+  const d = new Date().toISOString().slice(0, 10);
+  return `daily-volume:${apiKeyId}:${d}`;
+}
+
+async function getDailyVolume(apiKeyId: string): Promise<bigint> {
+  const key = todayKey(apiKeyId);
+  const redis = getRedisClient();
+  if (redis) {
+    try {
+      const val = await redis.get(key);
+      return val ? BigInt(val) : 0n;
+    } catch {
+      return dailyVolumeMemory.get(key) ?? 0n;
+    }
+  }
+  return dailyVolumeMemory.get(key) ?? 0n;
+}
+
+async function addDailyVolume(apiKeyId: string, amount: bigint): Promise<void> {
+  const key = todayKey(apiKeyId);
+  const redis = getRedisClient();
+  if (redis) {
+    try {
+      await redis.incrby(key, amount.toString());
+      await redis.expire(key, 90_000);
+      return;
+    } catch { /* fall through to memory */ }
+  }
+  dailyVolumeMemory.set(key, (dailyVolumeMemory.get(key) ?? 0n) + amount);
+}
 
 const SETTLE_RATE_LIMIT = parseInt(process.env.SETTLE_RATE_LIMIT || "100", 10);
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -130,11 +169,42 @@ export default async function settleIntakeRoutes(fastify: FastifyInstance) {
         continue;
       }
 
+      if (amount > MAX_SINGLE_TRANSFER) {
+        results.push({
+          reference: p.reference ?? null,
+          status: "rejected",
+          error: "amount_exceeds_limit",
+          max: MAX_SINGLE_TRANSFER.toString(),
+        } as any);
+        rejected++;
+        continue;
+      }
+
       const chain = p.chain || "solana";
       if (chain !== "solana" && chain !== "base") {
         results.push({ reference: p.reference ?? null, status: "rejected", error: "Chain must be 'solana' or 'base'" });
         rejected++;
         continue;
+      }
+
+      const currentWindowVolume = getWindowVolume(windowInfo.windowId);
+      if (currentWindowVolume + amount > MAX_WINDOW_VOLUME) {
+        return reply.status(429).send({
+          error: "window_limit_exceeded",
+          message: "Settlement window volume limit reached. Try again next window.",
+          currentVolume: currentWindowVolume.toString(),
+          limit: MAX_WINDOW_VOLUME.toString(),
+        });
+      }
+
+      const dailyVolume = await getDailyVolume(apiKeyId);
+      if (dailyVolume + amount > MAX_DAILY_VOLUME_PER_KEY) {
+        return reply.status(429).send({
+          error: "daily_limit_exceeded",
+          message: "Daily settlement volume limit reached.",
+          currentVolume: dailyVolume.toString(),
+          limit: MAX_DAILY_VOLUME_PER_KEY.toString(),
+        });
       }
 
       if (enableBalanceCheck && amount >= balanceCheckMin) {
@@ -239,6 +309,9 @@ export default async function settleIntakeRoutes(fastify: FastifyInstance) {
           console.error("[settle-intake] DB write failed:", err.message);
         }
       }
+
+      addWindowVolume(windowInfo.windowId, amount);
+      addDailyVolume(apiKeyId, amount).catch(() => {});
 
       results.push({
         reference: p.reference ?? null,
