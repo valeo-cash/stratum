@@ -163,9 +163,13 @@ export function getCurrentWindowInfo() {
   };
 }
 
+function inferChain(address: string): "solana" | "base" {
+  return address.startsWith("0x") ? "base" : "solana";
+}
+
 /**
- * Map netting transfers to NetTransfer[] with chain info from service registry.
- * Falls back to "solana" if no service config found.
+ * Map netting transfers to NetTransfer[] using the chain tag set during
+ * per-chain netting.  Falls back to address-format detection (0x → base).
  */
 function mapNettingToNetTransfers(
   nettingResult: any,
@@ -176,16 +180,8 @@ function mapNettingToNetTransfers(
 
   for (const t of nettingResult.transfers) {
     const payee = t.to || t.payee;
-    let chain: "solana" | "base" = "solana";
-
-    const services = listServices();
-    for (const svc of services) {
-      const walletValues = Object.values(svc.wallets);
-      if (svc.walletAddress === payee || walletValues.includes(payee)) {
-        chain = svc.chains[0] || "solana";
-        break;
-      }
-    }
+    const chain: "solana" | "base" =
+      t.chain === "base" ? "base" : inferChain(payee);
 
     transfers.push({
       from: t.from || t.payer,
@@ -239,22 +235,64 @@ export async function runSettlementCycle(): Promise<SignedWindowHead | null> {
   head = await manager.closeAndSettle({
     computeNetting: (window) => {
       const receipts = window.getReceipts();
-      const positions = new Map<string, Map<string, bigint>>();
 
+      const receiptsByChain = new Map<"solana" | "base", typeof receipts>();
       for (const sr of receipts) {
-        const payer = sr.receipt.payer as string;
-        const payee = sr.receipt.payee as string;
-        const amount = sr.receipt.amount;
-
-        if (!positions.has(payer)) positions.set(payer, new Map());
-        const payerMap = positions.get(payer)!;
-        payerMap.set(payee, (payerMap.get(payee) ?? 0n) + amount);
+        const chain = inferChain(sr.receipt.payee as string);
+        if (!receiptsByChain.has(chain)) receiptsByChain.set(chain, []);
+        receiptsByChain.get(chain)!.push(sr);
       }
 
-      return computeMultilateralNetting({
+      const allTransfers: any[] = [];
+      let totalGrossVolume = 0n;
+      let totalNetVolume = 0n;
+      let totalGrossTxCount = 0;
+
+      for (const [chain, chainReceipts] of receiptsByChain) {
+        const positions = new Map<string, Map<string, bigint>>();
+        for (const sr of chainReceipts) {
+          const payer = sr.receipt.payer as string;
+          const payee = sr.receipt.payee as string;
+          const amount = sr.receipt.amount;
+          if (!positions.has(payer)) positions.set(payer, new Map());
+          const payerMap = positions.get(payer)!;
+          payerMap.set(payee, (payerMap.get(payee) ?? 0n) + amount);
+        }
+
+        const result = computeMultilateralNetting({
+          window_id: window.windowId,
+          positions,
+        });
+
+        for (const t of result.transfers) {
+          (t as any).chain = chain;
+        }
+
+        allTransfers.push(...result.transfers);
+        totalGrossVolume += result.gross_volume;
+        totalNetVolume += result.net_volume;
+        totalGrossTxCount += result.gross_transaction_count;
+
+        if (result.transfers.length > 0) {
+          console.log(`[settlement] Netting chain=${chain}: ${result.gross_transaction_count} gross → ${result.transfer_count} net transfers`);
+        }
+      }
+
+      const transferCount = allTransfers.length;
+      return {
         window_id: window.windowId,
-        positions,
-      });
+        net_positions: new Map(),
+        transfers: allTransfers,
+        gross_transaction_count: totalGrossTxCount,
+        transfer_count: transferCount,
+        compression_ratio: transferCount === 0
+          ? (totalGrossTxCount === 0 ? 1 : Infinity)
+          : totalGrossTxCount / transferCount,
+        gross_volume: totalGrossVolume,
+        net_volume: totalNetVolume,
+        sum_of_nets_is_zero: true,
+        all_positions_resolved: true,
+      };
     },
 
     submitBatch: async (window, nettingResult: any) => {
