@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Footer from "../../../components/Footer";
 import FacilitatorDocsSidebar from "./FacilitatorDocsSidebar";
+import CopyButton from "./CopyButton";
 
 export const metadata: Metadata = {
   title: "Integration Guide — Valeo Stratum",
@@ -42,7 +43,8 @@ function P({ children }: { children: React.ReactNode }) {
 
 function Code({ children }: { children: string }) {
   return (
-    <pre className="rounded-none border border-[#E5E7EB] bg-[#FAFAFA] p-5 overflow-x-auto mb-6">
+    <pre className="relative rounded-none border border-[#E5E7EB] bg-[#FAFAFA] p-5 pr-16 overflow-x-auto mb-6">
+      <CopyButton text={children} />
       <code className="text-sm font-mono text-[#374151] leading-relaxed">
         {children}
       </code>
