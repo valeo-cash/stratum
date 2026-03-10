@@ -15,6 +15,7 @@ import { prisma } from "../db";
 import { getTeeAttestation, getTeeStatus, debugTeeSocket } from "../tee";
 import { checkBalance } from "../balance-check";
 import { verifyAuthorization, type AuthorizationType, type Eip3009Auth } from "../auth-hold";
+import { getActiveFacilitatorId } from "../webhook";
 
 function serializeReceipt(sr: any) {
   return {
@@ -442,7 +443,7 @@ export default async function clearingRoutes(fastify: FastifyInstance) {
         nonce: body.nonce,
       }),
       timestamp: Date.now(),
-      facilitator_id: createFacilitatorId("mock-facilitator"),
+      facilitator_id: createFacilitatorId(await getActiveFacilitatorId()),
       nonce: body.nonce,
       authorizationType: authType,
       approvalTxSignature: body.approvalTxSignature,

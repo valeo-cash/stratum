@@ -20,6 +20,7 @@ import {
   toHex,
 } from "../crypto";
 import { submitReceipt, getSettlementRouter } from "../settlement";
+import { getActiveFacilitatorId } from "../webhook";
 
 let receiptSeq = 0;
 
@@ -161,7 +162,7 @@ export default async function proxyRoutes(fastify: FastifyInstance) {
         nonce,
       }),
       timestamp: Date.now(),
-      facilitator_id: createFacilitatorId("mock-facilitator"),
+      facilitator_id: createFacilitatorId(await getActiveFacilitatorId()),
       nonce,
     };
 

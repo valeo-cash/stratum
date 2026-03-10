@@ -1,6 +1,29 @@
 import { createHmac } from "crypto";
 import { prisma } from "./db";
 
+let cachedFacilitatorId: string | null = null;
+let cacheExpiry = 0;
+const FACILITATOR_CACHE_TTL = 30_000;
+
+export async function getActiveFacilitatorId(): Promise<string> {
+  if (cachedFacilitatorId && Date.now() < cacheExpiry) {
+    return cachedFacilitatorId;
+  }
+
+  try {
+    const webhook = await prisma.facilitatorWebhook.findFirst({
+      where: { active: true },
+      select: { apiKeyId: true },
+    });
+    cachedFacilitatorId = webhook?.apiKeyId ?? "stratum-direct";
+  } catch {
+    cachedFacilitatorId = "stratum-direct";
+  }
+
+  cacheExpiry = Date.now() + FACILITATOR_CACHE_TTL;
+  return cachedFacilitatorId;
+}
+
 export async function deliverWebhook(
   webhookUrl: string,
   secret: string,

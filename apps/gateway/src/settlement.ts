@@ -22,7 +22,7 @@ import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import { getGatewayPrivateKey, getGatewayPublicKey, toHex } from "./crypto";
 import { listServices } from "./registry";
 import { prisma } from "./db";
-import { notifyFacilitators } from "./webhook";
+import { notifyFacilitators, getActiveFacilitatorId } from "./webhook";
 
 const config: StratumConfig = {
   version: 1,
@@ -258,11 +258,12 @@ export async function runSettlementCycle(): Promise<SignedWindowHead | null> {
       const hashes = receipts.map((r) => hashReceipt(r));
       const tree = new StratumMerkleTree(hashes);
 
+      const facilitatorId = await getActiveFacilitatorId();
       const batch = createSettlementBatch(
         nettingResult,
         window.windowId,
         tree.root,
-        "mock-facilitator",
+        facilitatorId,
       );
 
       const netTransfers = nettingResult.transfers?.length > 0
