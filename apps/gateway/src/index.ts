@@ -7,6 +7,7 @@ import proxyRoutes from "./routes/proxy";
 import clearingRoutes from "./routes/clearing";
 import facilitatorRoutes from "./routes/facilitator";
 import settleIntakeRoutes from "./routes/settle-intake";
+import mppIntakeRoutes from "./routes/mpp-intake";
 import { initGatewayKeypair } from "./crypto";
 import {
   startSettlementLoop,
@@ -107,6 +108,7 @@ server.register(proxyRoutes);
 server.register(clearingRoutes);
 server.register(facilitatorRoutes);
 server.register(settleIntakeRoutes);
+server.register(mppIntakeRoutes);
 
 let isShuttingDown = false;
 

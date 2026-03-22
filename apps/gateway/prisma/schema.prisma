@@ -101,10 +101,13 @@ model IntakePayment {
   chain       String    @default("solana")
   status      String    @default("queued")
   batchId     String?
-  txHash      String?
-  error        String?
-  metadata     String?
-  reconciled   Boolean   @default(false)
+  txHash            String?
+  error             String?
+  metadata          String?
+  paymentMethod     String?
+  paymentIntentId   String?
+  externallySettled Boolean   @default(false)
+  reconciled        Boolean   @default(false)
   reconciledAt DateTime?
   createdAt    DateTime  @default(now())
   settledAt    DateTime?
